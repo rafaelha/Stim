@@ -316,7 +316,11 @@ class CompiledLeakageUint8(CompiledOpHandler[TablesideSimulator]):
         to_set_to_one = np.zeros_like(self.state, dtype=bool)
         to_set_to_zero = np.zeros_like(self.state, dtype=bool)
 
-        for input_state in params.args_by_input_state.keys():
+        keys = params.args_by_input_state.keys()
+        if 0 in keys or 1 in keys:
+            self._update_state_from_peek_Z(np.where(target_mask)[0], tss)
+
+        for input_state in keys:
 
             if input_state in [0, 1]:
                 self._update_state_from_peek_Z(np.where(target_mask)[0], tss)

@@ -340,7 +340,9 @@ class CompiledLeakageUint8(CompiledOpHandler[TablesideSimulator]):
                 input_state=input_state, num_samples=samples_to_take, np_rng=tss.np_rng
             ).astype(str)
 
-            was_unleaked = output_states == "U"
+            was_unleaked = np.logical_and(
+                output_states == "U", input_state not in ["0", "1", "U"]
+            )
             set_to_one = output_states == "1"
             set_to_zero = output_states == "0"
 

@@ -343,10 +343,12 @@ class CompiledLeakageUint8(CompiledOpHandler[TablesideSimulator]):
             was_unleaked = np.logical_and(
                 output_states == "U", input_state not in ["0", "1", "U"]
             )
+            stayed_unleaked = np.logical_and(output_states == "U", input_state == "U")
             set_to_one = output_states == "1"
             set_to_zero = output_states == "0"
 
             output_states[was_unleaked] = 0
+            output_states[stayed_unleaked] = 0
             # actually overwrite the leakage states
             output_states = output_states.astype(np.uint8)
 
@@ -354,7 +356,6 @@ class CompiledLeakageUint8(CompiledOpHandler[TablesideSimulator]):
             to_set_to_one[overwrite_mask] = set_to_one
             to_set_to_zero[overwrite_mask] = set_to_zero
 
-            output_states[was_unleaked] = 0
             # output_states now all ints
             self.state[overwrite_mask] = output_states
 

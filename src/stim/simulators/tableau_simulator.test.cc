@@ -328,6 +328,130 @@ TEST_EACH_WORD_SIZE_W(TableauSimulator, unitary_gates_consistent_with_tableau_da
     }
 })
 
+TEST_EACH_WORD_SIZE_W(TableauSimulator, unitary_gates_are_noops_on_lost_qubits, {
+    for (const auto &gate : GATE_DATA.items) {
+        if (!gate.has_known_unitary_matrix()) {
+            continue;
+        }
+
+        const auto &tableau = gate.tableau<W>();
+        TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), tableau.num_qubits);
+        sim.set_lost(0);
+        auto before = sim.inv_state;
+        if (tableau.num_qubits == 2) {
+            sim.do_gate({gate.id, {}, qubit_targets({0, 1}), ""});
+        } else {
+            sim.do_gate({gate.id, {}, qubit_targets({0}), ""});
+        }
+        EXPECT_EQ(sim.inv_state, before) << gate.name;
+        EXPECT_TRUE(sim.is_lost(0)) << gate.name;
+    }
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, resets_and_noise_are_noops_on_lost_qubits, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.set_lost(0);
+    auto before = sim.inv_state;
+
+    sim.do_RX(OpDat(0));
+    sim.do_RY(OpDat(0));
+    sim.do_RZ(OpDat(0));
+    sim.safe_do_circuit(Circuit(R"circuit(
+        X_ERROR(1) 0
+        Y_ERROR(1) 0
+        Z_ERROR(1) 0
+        DEPOLARIZE1(1) 0
+        DEPOLARIZE2(1) 0 1
+    )circuit"));
+
+    ASSERT_EQ(sim.inv_state, before);
+    ASSERT_TRUE(sim.is_lost(0));
+
+    sim.safe_do_circuit(Circuit("E(1) X0 X1"));
+    ASSERT_EQ(sim.peek_z(1), -1);
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, paulis_and_tableau_are_noops_on_lost_qubits, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.set_lost(0);
+    auto before = sim.inv_state;
+
+    sim.paulis(PauliString<W>::from_str("X_"));
+    sim.apply_tableau(GATE_DATA.at("H").tableau<W>(), {0});
+
+    ASSERT_EQ(sim.inv_state, before);
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, lost_single_qubit_measurements, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.set_lost(0);
+    auto before = sim.inv_state;
+
+    sim.safe_do_circuit(Circuit(R"circuit(
+        M(1) !0
+        MX 0
+        MY 0
+        MR 0
+        M 1
+    )circuit"));
+
+    ASSERT_EQ(sim.inv_state, before);
+    ASSERT_EQ(sim.measurement_record.storage, std::vector<bool>({false, false, false, false, false}));
+    ASSERT_EQ(sim.measurement_loss_record.storage, std::vector<bool>({true, true, true, true, false}));
+    ASSERT_TRUE(sim.is_lost(0));
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, lost_measurement_disables_classical_feedback, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.set_lost(0);
+
+    sim.safe_do_circuit(Circuit(R"circuit(
+        M !0
+        CX rec[-1] 1
+        M 1
+    )circuit"));
+
+    ASSERT_EQ(sim.measurement_record.storage, std::vector<bool>({false, false}));
+    ASSERT_EQ(sim.measurement_loss_record.storage, std::vector<bool>({true, false}));
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, lost_parity_and_pauli_product_measurements, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.set_lost(0);
+    auto before = sim.inv_state;
+
+    sim.safe_do_circuit(Circuit(R"circuit(
+        MXX(1) !0 1
+        MYY 0 1
+        MZZ 0 1
+        MPP(1) X0*X1 Z1
+    )circuit"));
+
+    ASSERT_EQ(sim.inv_state, before);
+    ASSERT_EQ(sim.measurement_record.storage, std::vector<bool>({false, false, false, false, true}));
+    ASSERT_EQ(sim.measurement_loss_record.storage, std::vector<bool>({true, true, true, true, false}));
+
+    ASSERT_FALSE(sim.measure_pauli_string(PauliString<W>::from_str("XX"), 1));
+    ASSERT_TRUE(sim.measurement_loss_record.lookback(1));
+
+    auto [result, kickback] = sim.measure_kickback_z(GateTarget::qubit(0));
+    ASSERT_FALSE(result);
+    ASSERT_EQ(kickback.num_qubits, 0);
+    ASSERT_TRUE(sim.measurement_loss_record.lookback(1));
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, lost_pauli_product_rotations_reduce_to_live_factors, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 3);
+    TableauSimulator<W> expected(sim, INDEPENDENT_TEST_RNG());
+    sim.set_lost(0);
+    expected.set_lost(0);
+
+    sim.safe_do_circuit(Circuit("SPP X0*X1 Z2"));
+    expected.safe_do_circuit(Circuit("SPP X1 Z2"));
+
+    ASSERT_EQ(sim.inv_state, expected.inv_state);
+})
+
 TEST_EACH_WORD_SIZE_W(TableauSimulator, certain_errors_consistent_with_gates, {
     TableauSimulator<W> sim1(INDEPENDENT_TEST_RNG(), 2);
     TableauSimulator<W> sim2(INDEPENDENT_TEST_RNG(), 2);
@@ -908,6 +1032,48 @@ TEST_EACH_WORD_SIZE_W(TableauSimulator, set_num_qubits, {
     sim1.set_num_qubits(20);
     sim2.ensure_large_enough_for_qubits(20);
     ASSERT_EQ(sim1.inv_state, sim2.inv_state);
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, lost_qubits_lifecycle, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 3);
+    ASSERT_FALSE(sim.lost_qubits[0]);
+    ASSERT_FALSE(sim.lost_qubits[1]);
+    ASSERT_FALSE(sim.lost_qubits[2]);
+
+    sim.lost_qubits[1] = true;
+    sim.ensure_large_enough_for_qubits(W + 1);
+    ASSERT_TRUE(sim.lost_qubits[1]);
+    ASSERT_FALSE(sim.lost_qubits[W]);
+
+    TableauSimulator<W> copy(sim, INDEPENDENT_TEST_RNG());
+    ASSERT_TRUE(copy.lost_qubits[1]);
+
+    sim.set_num_qubits(1);
+    sim.ensure_large_enough_for_qubits(W + 1);
+    ASSERT_FALSE(sim.lost_qubits[1]);
+})
+
+TEST_EACH_WORD_SIZE_W(TableauSimulator, loss_channel, {
+    TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 2);
+    sim.do_H_XZ(OpDat(0));
+    sim.do_ZCX(OpDat({0, 1}));
+
+    sim.loss_channel(0, 0);
+    ASSERT_FALSE(sim.is_lost(0));
+    sim.loss_channel(0, 1);
+    ASSERT_TRUE(sim.is_lost(0));
+    ASSERT_EQ(sim.peek_z(0), +1);
+    ASSERT_EQ(sim.measurement_record.storage.size(), 0);
+
+    sim.reset_loss_channel(0);
+    ASSERT_FALSE(sim.is_lost(0));
+    ASSERT_EQ(sim.peek_z(0), +1);
+
+    sim.set_lost(4);
+    ASSERT_EQ(sim.inv_state.num_qubits, 5);
+    ASSERT_TRUE(sim.is_lost(4));
+    ASSERT_THROW(sim.loss_channel(0, -0.1), std::invalid_argument);
+    ASSERT_THROW(sim.loss_channel(0, 1.1), std::invalid_argument);
 })
 
 TEST_EACH_WORD_SIZE_W(TableauSimulator, set_num_qubits_reduce_random, {

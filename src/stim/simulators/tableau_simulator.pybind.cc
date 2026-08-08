@@ -410,6 +410,99 @@ void stim_pybind::pybind_tableau_simulator_methods(
             .data());
 
     c.def(
+        "current_measurement_loss_record",
+        [](const TableauSimulator<MAX_BITWORD_WIDTH> &self) {
+            return self.measurement_loss_record.storage;
+        },
+        clean_doc_string(R"DOC(
+            @signature def current_measurement_loss_record(self) -> List[bool]:
+            Returns a copy of the loss flags aligned with the measurement record.
+
+            A true entry means the corresponding measurement targeted a lost qubit
+            (or a product containing a lost qubit) and therefore had no binary outcome.
+
+            Examples:
+                >>> import stim
+                >>> s = stim.TableauSimulator()
+                >>> s.loss_channel(0, 1)
+                >>> s.measure(0) is None
+                True
+                >>> s.current_measurement_record()
+                [False]
+                >>> s.current_measurement_loss_record()
+                [True]
+
+            Returns:
+                A list of booleans aligned with current_measurement_record().
+        )DOC")
+            .data());
+
+    c.def(
+        "loss_channel",
+        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target, double probability) {
+            self.loss_channel(target, probability);
+        },
+        pybind11::arg("target"),
+        pybind11::arg("probability"),
+        clean_doc_string(R"DOC(
+            @signature def loss_channel(self, target: int, probability: float) -> None:
+            Probabilistically marks a qubit as lost.
+
+            When loss occurs, the qubit is isolated and its hidden tableau state is
+            reset to |0>. Gates and ordinary resets then ignore it until
+            reset_loss_channel is called.
+
+            Args:
+                target: The index of the target qubit.
+                probability: The loss probability, between 0 and 1 inclusive.
+        )DOC")
+            .data());
+
+    c.def(
+        "reset_loss_channel",
+        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) {
+            self.reset_loss_channel(target);
+        },
+        pybind11::arg("target"),
+        clean_doc_string(R"DOC(
+            @signature def reset_loss_channel(self, target: int) -> None:
+            Reactivates a lost qubit in the |0> state.
+
+            Args:
+                target: The index of the target qubit.
+        )DOC")
+            .data());
+
+    c.def(
+        "is_lost",
+        [](const TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) {
+            return self.is_lost(target);
+        },
+        pybind11::arg("target"),
+        clean_doc_string(R"DOC(
+            @signature def is_lost(self, target: int) -> bool:
+            Returns whether a qubit is currently lost.
+
+            Untracked qubits are not lost.
+        )DOC")
+            .data());
+
+    c.def(
+        "loss_values",
+        [](const TableauSimulator<MAX_BITWORD_WIDTH> &self) {
+            std::vector<bool> result(self.inv_state.num_qubits);
+            for (size_t k = 0; k < result.size(); k++) {
+                result[k] = self.is_lost(k);
+            }
+            return result;
+        },
+        clean_doc_string(R"DOC(
+            @signature def loss_values(self) -> List[bool]:
+            Returns the loss state of every tracked qubit.
+        )DOC")
+            .data());
+
+    c.def(
         "do",
         &do_obj<MAX_BITWORD_WIDTH>,
         pybind11::arg("circuit_or_pauli_string"),
@@ -1811,17 +1904,22 @@ void stim_pybind::pybind_tableau_simulator_methods(
         "measure_observable",
         [](TableauSimulator<MAX_BITWORD_WIDTH> &self,
            const FlexPauliString &observable,
-           double flip_probability) -> bool {
+           double flip_probability) -> pybind11::object {
             if (observable.imag) {
                 throw std::invalid_argument(
                     "Observable isn't Hermitian; it has imaginary sign. Need observable.sign in [1, -1].");
             }
-            return self.measure_pauli_string(observable.value, flip_probability);
+            bool result = self.measure_pauli_string(observable.value, flip_probability);
+            if (self.measurement_loss_record.storage.back()) {
+                return pybind11::none();
+            }
+            return pybind11::bool_(result);
         },
         pybind11::arg("observable"),
         pybind11::kw_only(),
         pybind11::arg("flip_probability") = 0.0,
         clean_doc_string(R"DOC(
+            @signature def measure_observable(self, observable: stim.PauliString, *, flip_probability: float = 0.0) -> Optional[bool]:
             Measures an pauli string observable, as if by an MPP instruction.
 
             Args:
@@ -1830,7 +1928,8 @@ void stim_pybind::pybind_tableau_simulator_methods(
                     flipped.
 
             Returns:
-                The result of the measurement.
+                The result of the measurement, or None when the observable contains a
+                lost qubit.
 
                 The result is also recorded into the measurement record.
 
@@ -1899,14 +1998,18 @@ void stim_pybind::pybind_tableau_simulator_methods(
 
     c.def(
         "measure",
-        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) {
+        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) -> pybind11::object {
             self.ensure_large_enough_for_qubits(target + 1);
             GateTarget g{target};
             self.do_MZ(CircuitInstruction{GateType::M, {}, &g, ""});
-            return (bool)self.measurement_record.storage.back();
+            if (self.measurement_loss_record.storage.back()) {
+                return pybind11::none();
+            }
+            return pybind11::bool_(self.measurement_record.storage.back());
         },
         pybind11::arg("target"),
         clean_doc_string(R"DOC(
+            @signature def measure(self, target: int) -> Optional[bool]:
             Measures a single qubit.
 
             Unlike the other methods on TableauSimulator, this one does not broadcast
@@ -1919,7 +2022,7 @@ void stim_pybind::pybind_tableau_simulator_methods(
                 target: The index of the qubit to measure.
 
             Returns:
-                The measurement result as a bool.
+                The measurement result as a bool, or None if the qubit is lost.
 
             Examples:
                 >>> import stim
@@ -1938,17 +2041,27 @@ void stim_pybind::pybind_tableau_simulator_methods(
             auto converted_args =
                 build_single_qubit_gate_instruction_ensure_size<MAX_BITWORD_WIDTH>(self, GateType::M, args);
             self.do_MZ(converted_args);
-            auto e = self.measurement_record.storage.end();
-            return std::vector<bool>(e - converted_args.targets.size(), e);
+            pybind11::list result;
+            size_t offset = self.measurement_record.storage.size() - converted_args.targets.size();
+            for (size_t k = 0; k < converted_args.targets.size(); k++) {
+                if (self.measurement_loss_record.storage[offset + k]) {
+                    result.append(pybind11::none());
+                } else {
+                    result.append(pybind11::bool_(self.measurement_record.storage[offset + k]));
+                }
+            }
+            return result;
         },
         clean_doc_string(R"DOC(
+            @signature def measure_many(self, *targets: int) -> List[Optional[bool]]:
             Measures multiple qubits.
 
             Args:
                 *targets: The indices of the qubits to measure.
 
             Returns:
-                The measurement results as a list of bools.
+                The measurement results as a list of bools or None values. None indicates
+                a lost qubit.
 
             Examples:
                 >>> import stim
@@ -2167,6 +2280,8 @@ void stim_pybind::pybind_tableau_simulator_methods(
         "set_inverse_tableau",
         [](TableauSimulator<MAX_BITWORD_WIDTH> &self, const Tableau<MAX_BITWORD_WIDTH> &new_inverse_tableau) {
             self.inv_state = new_inverse_tableau;
+            self.lost_qubits.destructive_resize(new_inverse_tableau.num_qubits);
+            self.lost_qubits.clear();
         },
         pybind11::arg("new_inverse_tableau"),
         clean_doc_string(R"DOC(
@@ -2287,9 +2402,12 @@ void stim_pybind::pybind_tableau_simulator_methods(
 
     c.def(
         "measure_kickback",
-        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) {
+        [](TableauSimulator<MAX_BITWORD_WIDTH> &self, uint32_t target) -> pybind11::tuple {
             self.ensure_large_enough_for_qubits(target + 1);
             auto result = self.measure_kickback_z({target});
+            if (self.measurement_loss_record.storage.back()) {
+                return pybind11::make_tuple(pybind11::none(), pybind11::none());
+            }
             if (result.second.num_qubits == 0) {
                 return pybind11::make_tuple(result.first, pybind11::none());
             }
@@ -2297,6 +2415,7 @@ void stim_pybind::pybind_tableau_simulator_methods(
         },
         pybind11::arg("target"),
         clean_doc_string(R"DOC(
+            @signature def measure_kickback(self, target: int) -> Tuple[Optional[bool], Optional[stim.PauliString]]:
             Measures a qubit and returns the result as well as its Pauli kickback (if any).
 
             The "Pauli kickback" of a stabilizer circuit measurement is a set of Pauli
@@ -2318,7 +2437,8 @@ void stim_pybind::pybind_tableau_simulator_methods(
 
             Returns:
                 A (result, kickback) tuple.
-                The result is a bool containing the measurement's output.
+                The result is a bool containing the measurement's output, or None if the
+                qubit is lost.
                 The kickback is either None (meaning the measurement was deterministic) or a
                 stim.PauliString (meaning the measurement was random, and the operations in
                 the Pauli string flip between the two possible post-measurement states).
@@ -2366,6 +2486,8 @@ void stim_pybind::pybind_tableau_simulator_methods(
             }
             self.inv_state = stabilizers_to_tableau<MAX_BITWORD_WIDTH>(
                 converted_stabilizers, allow_redundant, allow_underconstrained, true);
+            self.lost_qubits.destructive_resize(self.inv_state.num_qubits);
+            self.lost_qubits.clear();
         },
         pybind11::arg("stabilizers"),
         pybind11::kw_only(),
@@ -2478,6 +2600,8 @@ void stim_pybind::pybind_tableau_simulator_methods(
             self.inv_state = circuit_to_tableau<MAX_BITWORD_WIDTH>(
                                  stabilizer_state_vector_to_circuit(v, little_endian), false, false, false)
                                  .inverse();
+            self.lost_qubits.destructive_resize(self.inv_state.num_qubits);
+            self.lost_qubits.clear();
         },
         pybind11::arg("state_vector"),
         pybind11::kw_only(),

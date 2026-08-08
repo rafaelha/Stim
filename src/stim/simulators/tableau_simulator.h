@@ -175,6 +175,7 @@ struct TableauSimulator {
     void do_Z_ERROR(const CircuitInstruction &inst);
     void do_PAULI_CHANNEL_1(const CircuitInstruction &inst);
     void do_PAULI_CHANNEL_2(const CircuitInstruction &inst);
+    void do_LOSS(const CircuitInstruction &inst);
     void do_CORRELATED_ERROR(const CircuitInstruction &inst);
     void do_ELSE_CORRELATED_ERROR(const CircuitInstruction &inst);
     void do_MPP(const CircuitInstruction &inst);

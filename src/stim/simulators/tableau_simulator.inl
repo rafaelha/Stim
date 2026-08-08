@@ -1404,6 +1404,13 @@ void TableauSimulator<W>::do_Z_ERROR(const CircuitInstruction &target_data) {
 }
 
 template <size_t W>
+void TableauSimulator<W>::do_LOSS(const CircuitInstruction &target_data) {
+    for (const auto &target : target_data.targets) {
+        loss_channel(target.qubit_value(), target_data.args[0]);
+    }
+}
+
+template <size_t W>
 void TableauSimulator<W>::do_PAULI_CHANNEL_1(const CircuitInstruction &target_data) {
     bool tmp = last_correlated_error_occurred;
     perform_pauli_errors_via_correlated_errors<1>(
@@ -2118,6 +2125,9 @@ void TableauSimulator<W>::do_gate(const CircuitInstruction &inst) {
         case GateType::I_ERROR:
         case GateType::II_ERROR:
             do_I(inst);
+            break;
+        case GateType::LOSS:
+            do_LOSS(inst);
             break;
         case GateType::X:
             do_X(inst);

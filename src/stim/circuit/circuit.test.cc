@@ -1844,7 +1844,10 @@ TEST(circuit, generate_test_circuit_with_all_operations) {
     for (const auto &instruction : c.operations) {
         seen.insert(instruction.gate_type);
     }
-    ASSERT_EQ(seen.size(), NUM_DEFINED_GATES);
+    // LOSS is intentionally omitted because this fixture is shared by simulators
+    // that don't model qubit loss.
+    seen.erase(GateType::LOSS);
+    ASSERT_EQ(seen.size(), NUM_DEFINED_GATES - 1);
 }
 
 TEST(circuit, insert_circuit) {

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Benchmark Stim, ppvm, and Clifft on surface-code circuits with loss.
 
-The benchmark deliberately uses Clifft's non-computational API
-(``clifft.noncomp.sample``), including for the no-loss control. This is the
-Clifft implementation that supports ``LOSS(p)`` without requiring a compiled
-program from the caller.
+The no-loss control can use either the non-computational APIs or the compiled
+samplers. The compiled curves precompile before timing: Stim uses
+``Circuit.compile_sampler`` and Clifft uses ``clifft.compile``. LOSS runs use
+the non-computational APIs because those are the implementations that support
+the LOSS instruction.
 
 The current ppvm parser on ``main`` predates the ``LOSS`` instruction. Its loss
 benchmark therefore runs operation groups through a ``GeneralizedTableau`` and
@@ -53,24 +54,30 @@ class CircuitCase:
     distance: int
     num_qubits: int
     stim_circuit: Any
-    stim_loss_circuit: Any
-    ppvm_program: Any
+    stim_loss_circuit: Any | None
+    stim_compiled_sampler: Any | None
+    ppvm_program: Any | None
     ppvm_loss_groups: list[tuple[Any, tuple[int, ...]]]
-    clifft_circuit: Any
-    clifft_loss_circuit: Any
+    clifft_circuit: Any | None
+    clifft_loss_circuit: Any | None
+    clifft_compiled_program: Any | None
 
 
-def _imports() -> tuple[Any, Any, Any, Any, Any]:
+def _imports(require_ppvm: bool = True) -> tuple[Any, Any, Any, Any, Any]:
     """Import benchmark dependencies with a useful error message."""
 
     try:
         import clifft
-        import ppvm
         import stim
         from clifft import noncomp
+        ppvm = None
+        if require_ppvm:
+            import ppvm
     except ImportError as exc:  # pragma: no cover - exercised by CLI users.
         raise SystemExit(
-            "This benchmark needs the local Stim build plus clifft and ppvm. "
+            "This benchmark needs the local Stim build plus clifft"
+            + (" and ppvm" if require_ppvm else "")
+            + ". "
             "See benchmarks/README.md for installation instructions."
         ) from exc
     return stim, ppvm, clifft, noncomp, clifft.parse
@@ -159,7 +166,20 @@ def build_case(
     distance: int,
     noise_probability: float,
     loss_probability: float,
+    include_loss: bool = True,
+    simulators: Sequence[str] | None = None,
 ) -> CircuitCase:
+    selected_simulators = set(
+        simulators
+        if simulators is not None
+        else ("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled")
+    )
+    need_stim_loss = include_loss and "Stim" in selected_simulators
+    need_clifft = bool(selected_simulators.intersection(("Clifft", "Clifft compiled")))
+    need_clifft_loss = include_loss and "Clifft" in selected_simulators
+    need_ppvm = "ppvm" in selected_simulators
+    need_stim_compiled = "Stim compiled" in selected_simulators
+
     circuit = stim_module.Circuit.generated(
         "surface_code:rotated_memory_x",
         distance=distance,
@@ -169,16 +189,36 @@ def build_case(
         after_reset_flip_probability=noise_probability,
         before_measure_flip_probability=noise_probability,
     )
-    loss_circuit = add_loss_after_gates(stim_module, circuit, loss_probability)
+    loss_circuit = (
+        add_loss_after_gates(stim_module, circuit, loss_probability)
+        if need_stim_loss or need_clifft_loss
+        else None
+    )
     return CircuitCase(
         distance=distance,
         num_qubits=circuit.num_qubits,
         stim_circuit=circuit,
         stim_loss_circuit=loss_circuit,
-        ppvm_program=_parse_ppvm_program(ppvm_module, circuit),
-        ppvm_loss_groups=build_ppvm_loss_groups(stim_module, ppvm_module, circuit),
-        clifft_circuit=clifft_module.parse(str(circuit)),
-        clifft_loss_circuit=clifft_module.parse(str(loss_circuit)),
+        stim_compiled_sampler=(circuit.compile_sampler() if need_stim_compiled else None),
+        ppvm_program=(
+            None if not need_ppvm else _parse_ppvm_program(ppvm_module, circuit)
+        ),
+        ppvm_loss_groups=(
+            []
+            if not need_ppvm or not include_loss
+            else build_ppvm_loss_groups(stim_module, ppvm_module, circuit)
+        ),
+        clifft_circuit=(clifft_module.parse(str(circuit)) if need_clifft else None),
+        clifft_loss_circuit=(
+            None
+            if not need_clifft_loss
+            else clifft_module.parse(str(loss_circuit))
+        ),
+        clifft_compiled_program=(
+            clifft_module.compile(str(circuit))
+            if "Clifft compiled" in selected_simulators
+            else None
+        ),
     )
 
 
@@ -196,6 +236,14 @@ def _timed_minimum(
 def _run_stim(stim_module: Any, circuit: Any, seed: int) -> None:
     simulator = stim_module.TableauSimulator(seed=seed)
     simulator.do(circuit)
+
+
+def _run_stim_compiled(sampler: Any, seed: int) -> None:
+    # Stim's compiled sampler does not expose a per-call seed in the current
+    # Python API.  The benchmark measures execution time, so use its default
+    # random stream; the seed argument is retained for the common runner API.
+    del seed
+    sampler.sample(shots=SHOTS)
 
 
 def _run_ppvm_no_loss(ppvm_module: Any, program: Any, num_qubits: int, seed: int) -> None:
@@ -218,6 +266,10 @@ def _run_ppvm_loss(
 
 def _run_clifft(noncomp_module: Any, circuit: Any, model: Any, seed: int) -> None:
     noncomp_module.sample(circuit, model, shots=SHOTS, seed=seed)
+
+
+def _run_clifft_compiled(clifft_module: Any, program: Any, seed: int) -> None:
+    clifft_module.sample(program, shots=SHOTS, seed=seed)
 
 
 def _result_row(
@@ -281,8 +333,20 @@ def _plot_results(rows: list[dict[str, str]], output_dir: Path) -> tuple[Path, P
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    colors = {"Stim": "#2563eb", "ppvm": "#ea580c", "Clifft": "#16a34a"}
-    markers = {"Stim": "o", "ppvm": "s", "Clifft": "^"}
+    colors = {
+        "Stim": "#2563eb",
+        "Stim compiled": "#7c3aed",
+        "ppvm": "#ea580c",
+        "Clifft": "#16a34a",
+        "Clifft compiled": "#0891b2",
+    }
+    markers = {
+        "Stim": "o",
+        "Stim compiled": "D",
+        "ppvm": "s",
+        "Clifft": "^",
+        "Clifft compiled": "P",
+    }
     paths: list[Path] = []
     for variant, title, filename in (
         ("no_loss", "Surface-code simulation without LOSS", "benchmark_no_loss.png"),
@@ -316,7 +380,9 @@ def _plot_results(rows: list[dict[str, str]], output_dir: Path) -> tuple[Path, P
         axis.set_ylabel("Minimum runtime (seconds, 5 runs)")
         axis.set_title(title)
         axis.grid(True, which="both", color="#cbd5e1", alpha=0.45, linewidth=0.7)
-        axis.legend(frameon=False)
+        handles, labels = axis.get_legend_handles_labels()
+        if handles:
+            axis.legend(frameon=False)
         path = output_dir / filename
         figure.savefig(path, dpi=180)
         plt.close(figure)
@@ -334,7 +400,12 @@ def run_benchmark(
     simulators: Sequence[str] = ("Stim", "ppvm", "Clifft"),
     variants: Sequence[str] = ("no_loss", "loss"),
 ) -> list[dict[str, str]]:
-    stim_module, ppvm_module, clifft_module, noncomp_module, _ = _imports()
+    selected_simulators = set(simulators)
+    selected_variants = set(variants)
+    stim_module, ppvm_module, clifft_module, noncomp_module, _ = _imports(
+        require_ppvm="ppvm" in selected_simulators
+    )
+    include_loss = "loss" in selected_variants
     output_dir.mkdir(parents=True, exist_ok=True)
     csv_path = output_dir / "benchmark_results.csv"
     rows: list[dict[str, str]] = []
@@ -342,6 +413,7 @@ def run_benchmark(
         writer = csv.DictWriter(
             handle,
             fieldnames=["distance", "variant", "simulator", "min_seconds", "run_seconds", "error"],
+            lineterminator="\n",
         )
         writer.writeheader()
         loss_model = noncomp_module.Model(
@@ -358,10 +430,10 @@ def run_benchmark(
                 distance,
                 noise_probability,
                 loss_probability,
+                include_loss=include_loss,
+                simulators=selected_simulators,
             )
             seed_base = 100_000 + distance * 10_000
-            selected_simulators = set(simulators)
-            selected_variants = set(variants)
             case_rows: list[dict[str, str]] = []
             if "Stim" in selected_simulators and "no_loss" in selected_variants:
                 case_rows.append(
@@ -372,6 +444,19 @@ def run_benchmark(
                         simulator="Stim",
                         repeats=repeats,
                         seed_base=seed_base,
+                    )
+                )
+            if "Stim compiled" in selected_simulators and "no_loss" in selected_variants:
+                case_rows.append(
+                    _time_one(
+                        lambda seed, c=case: _run_stim_compiled(
+                            c.stim_compiled_sampler, seed
+                        ),
+                        distance=distance,
+                        variant="no_loss",
+                        simulator="Stim compiled",
+                        repeats=repeats,
+                        seed_base=seed_base + 50,
                     )
                 )
             if "ppvm" in selected_simulators and "no_loss" in selected_variants:
@@ -398,6 +483,19 @@ def run_benchmark(
                         simulator="Clifft",
                         repeats=repeats,
                         seed_base=seed_base + 200,
+                    )
+                )
+            if "Clifft compiled" in selected_simulators and "no_loss" in selected_variants:
+                case_rows.append(
+                    _time_one(
+                        lambda seed, c=case: _run_clifft_compiled(
+                            clifft_module, c.clifft_compiled_program, seed
+                        ),
+                        distance=distance,
+                        variant="no_loss",
+                        simulator="Clifft compiled",
+                        repeats=repeats,
+                        seed_base=seed_base + 250,
                     )
                 )
             if "Stim" in selected_simulators and "loss" in selected_variants:
@@ -499,7 +597,7 @@ def main() -> None:
     parser.add_argument("--distances", type=int, nargs="+", default=list(DISTANCES))
     parser.add_argument(
         "--simulators",
-        choices=("Stim", "ppvm", "Clifft"),
+        choices=("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled"),
         nargs="+",
         default=["Stim", "ppvm", "Clifft"],
     )

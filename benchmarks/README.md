@@ -1,6 +1,6 @@
 # LOSS simulator benchmark
 
-`loss_simulator_benchmark.py` compares the LOSS-enabled Stim branch with QuEra's `ppvm` and Clifft's non-computational simulator. It generates `surface_code:rotated_memory_x` circuits at distances `5, 7, 9, 11, 15, 20, 25, 30, 40, 50`, with `rounds=distance` and all four Stim noise parameters set to `0.001`:
+`loss_simulator_benchmark.py` compares the LOSS-enabled Stim branch with QuEra's `ppvm` and Clifft. It generates `surface_code:rotated_memory_x` circuits at distances `5, 7, 9, 11, 15, 20, 25, 30, 40, 50`, with `rounds=distance` and all four Stim noise parameters set to `0.001`:
 
 ```text
 after_clifford_depolarization
@@ -9,7 +9,9 @@ after_reset_flip_probability
 before_measure_flip_probability
 ```
 
-Each point is one shot and the reported value is the minimum of five timed runs. Circuit parsing and model construction happen before timing. Stim and ppvm execute their prepared programs; Clifft is intentionally timed through `clifft.noncomp.sample`, the non-computational API that supports LOSS (it does its continuation compilation internally). This makes the Clifft curve the requested non-compiled simulator rather than Clifft's ordinary compiled sampler.
+Each point is one shot and the reported value is the minimum of five timed runs. Circuit parsing and model construction happen before timing. The `Stim`, `ppvm`, and `Clifft` rows use their non-compiled/tableau-style paths; the `Stim compiled` and `Clifft compiled` rows are no-loss controls that precompile once before timing and sample the resulting program inside each timed run. Stim's compiled row uses `Circuit.compile_sampler().sample`, while Clifft's uses `clifft.compile` followed by `clifft.sample`.
+
+Compiled controls are plotted only in `benchmark_no_loss.png`: the LOSS figure remains the three LOSS-capable, non-compiled backends.
 
 The loss set adds `LOSS(0.001)` after every qubit-targeting gate, including noise channels and measurement/reset operations. Annotation instructions and `TICK` are not gates and are left unchanged. Repeat blocks are preserved in the Stim/Clifft loss circuit.
 
@@ -45,6 +47,22 @@ Use `--self-test` for a distance-five API smoke test, or `--distances 5 7 --repe
 - `benchmark_no_loss.png`, a log-log plot for the control circuits;
 - `benchmark_loss.png`, a log-log plot for the LOSS circuits.
 
+The `--simulators` choices are `Stim`, `Stim compiled`, `ppvm`, `Clifft`, and
+`Clifft compiled`. The default keeps the original three LOSS-capable backends;
+collect compiled controls as independent slices when desired:
+
+```bash
+python benchmarks/loss_simulator_benchmark.py \
+  --simulators "Stim compiled" --variants no_loss
+python benchmarks/loss_simulator_benchmark.py \
+  --simulators "Clifft compiled" --variants no_loss \
+  --distances 5 7 9 11 15 20 25 30 40
+```
+
+`merge_compiled_results.py` merges those slices into the recorded CSV and
+regenerates both figures. Independent slices keep a resource failure in one
+compiled backend from discarding the other backend's timings.
+
 ## Recorded cloud run
 
 The checked-in CSV and figures were collected on the nine-vCPU cloud machine
@@ -54,14 +72,17 @@ backend could not complete:
 
 - ppvm's Python bindings reject circuits above 2,048 qubits, so d=40 and d=50
   are recorded as unsupported by that package interface;
-- Clifft completed the no-loss set through d=40, but the machine killed the
-  d=50 preparation for memory pressure;
+- Clifft's non-compiled no-loss set completed through d=40, but the machine
+  killed the d=50 preparation for memory pressure;
+- Clifft's compiled no-loss sampler also completed through d=40; compiling the
+  d=50 program was killed by the machine (exit 137) before timing could start;
 - Clifft's LOSS set completed five runs through d=15 (minimum 99.09 s there).
   Larger LOSS points were not measured after that run time became impractical.
 
-Unavailable points have an empty `min_seconds` and an explanatory `error` in
-the CSV; the plotting code omits those points instead of inventing a value.
-`merge_benchmark_results.py` reproduces the merge/plot step when slices are
-collected independently.
+The checked-in CSV has 80 rows: 69 measured points and 11 explicit unavailable
+points. Unavailable points have an empty `min_seconds` and an explanatory
+`error` in the CSV; the plotting code omits those points instead of inventing a
+value. `merge_benchmark_results.py` reproduces the original non-compiled
+merge, and `merge_compiled_results.py` adds the compiled slices.
 
 References: [Stim circuit generation](https://github.com/quantumlib/Stim/wiki/Stim-vDev-Guide), [ppvm](https://github.com/QuEraComputing/ppvm), and [Clifft leakage/loss sampling](https://clifft.readthedocs.io/en/latest/leakage.html).

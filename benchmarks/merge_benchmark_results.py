@@ -90,7 +90,7 @@ def merge(
     output_dir.mkdir(parents=True, exist_ok=True)
     output_csv = output_dir / "benchmark_results.csv"
     with output_csv.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=FIELDS)
+        writer = csv.DictWriter(handle, fieldnames=FIELDS, lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
     no_loss_path, loss_path = _plot_results(rows, output_dir)

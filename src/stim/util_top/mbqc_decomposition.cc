@@ -18,6 +18,7 @@ const char *stim::mbqc_decomposition(GateType gate) {
         case GateType::Y_ERROR:
         case GateType::Z_ERROR:
         case GateType::I_ERROR:
+        case GateType::LOSS:
         case GateType::II_ERROR:
         case GateType::PAULI_CHANNEL_1:
         case GateType::PAULI_CHANNEL_2:

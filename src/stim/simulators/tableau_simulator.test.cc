@@ -1076,6 +1076,38 @@ TEST_EACH_WORD_SIZE_W(TableauSimulator, loss_channel, {
     ASSERT_THROW(sim.loss_channel(0, 1.1), std::invalid_argument);
 })
 
+TEST_EACH_WORD_SIZE_W(TableauSimulator, loss_gate, {
+    TableauSimulator<W> none(INDEPENDENT_TEST_RNG(), 0);
+    none.safe_do_circuit(Circuit("LOSS(0) 0 1 2"));
+    ASSERT_EQ(none.inv_state.num_qubits, 3);
+    ASSERT_FALSE(none.is_lost(0));
+    ASSERT_FALSE(none.is_lost(1));
+    ASSERT_FALSE(none.is_lost(2));
+
+    TableauSimulator<W> all(INDEPENDENT_TEST_RNG(), 0);
+    all.safe_do_circuit(Circuit("LOSS(1) 0 1 2"));
+    ASSERT_TRUE(all.is_lost(0));
+    ASSERT_TRUE(all.is_lost(1));
+    ASSERT_TRUE(all.is_lost(2));
+
+    std::mt19937_64 gate_rng(1234);
+    std::mt19937_64 direct_rng(1234);
+    TableauSimulator<W> via_gate(std::move(gate_rng), 3);
+    TableauSimulator<W> via_api(std::move(direct_rng), 3);
+    via_gate.safe_do_circuit(Circuit("LOSS(0.5) 0 1 2"));
+    for (size_t q = 0; q < 3; q++) {
+        via_api.loss_channel(q, 0.5);
+    }
+    for (size_t q = 0; q < 3; q++) {
+        ASSERT_EQ(via_gate.is_lost(q), via_api.is_lost(q));
+    }
+
+    TableauSimulator<W> measured(INDEPENDENT_TEST_RNG(), 0);
+    measured.safe_do_circuit(Circuit("LOSS(1) 0\nM 0"));
+    ASSERT_EQ(measured.measurement_record.storage, std::vector<bool>({false}));
+    ASSERT_EQ(measured.measurement_loss_record.storage, std::vector<bool>({true}));
+})
+
 TEST_EACH_WORD_SIZE_W(TableauSimulator, set_num_qubits_reduce_random, {
     auto rng = INDEPENDENT_TEST_RNG();
     TableauSimulator<W> sim(INDEPENDENT_TEST_RNG(), 10);

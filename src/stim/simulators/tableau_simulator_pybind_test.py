@@ -734,6 +734,32 @@ def test_loss_channel_lifecycle_and_measurements():
     assert s.measure(0) is False
 
 
+def test_loss_instruction_via_do():
+    s = stim.TableauSimulator(seed=0)
+    s.do(stim.Circuit("LOSS(1) 0 1 2"))
+    assert s.loss_values() == [True, True, True]
+
+    s.reset_loss_channel(1)
+    s.do(stim.Circuit("LOSS(0) 0 1 2"))
+    assert s.loss_values() == [True, False, True]
+
+    s = stim.TableauSimulator(seed=0)
+    s.do(stim.Circuit("LOSS(1) 0\nM 0"))
+    assert s.current_measurement_record() == [False]
+    assert s.current_measurement_loss_record() == [True]
+
+
+def test_loss_instruction_validates_probability_and_targets():
+    with pytest.raises(ValueError, match="LOSS.*parens arguments"):
+        stim.Circuit("LOSS 0")
+    with pytest.raises(ValueError, match="LOSS.*probability"):
+        stim.Circuit("LOSS(-0.1) 0")
+    with pytest.raises(ValueError, match="LOSS.*probability"):
+        stim.Circuit("LOSS(1.1) 0")
+    with pytest.raises(ValueError, match="invalid modifiers.*LOSS"):
+        stim.Circuit("LOSS(0.5) rec[-1]")
+
+
 def test_state_replacement_clears_loss_state():
     s = stim.TableauSimulator()
     s.loss_channel(0, 1)

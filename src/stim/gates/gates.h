@@ -88,7 +88,7 @@ constexpr inline uint16_t gate_name_to_hash(std::string_view text) {
     return result & 0x1FF;
 }
 
-constexpr size_t NUM_DEFINED_GATES = 82;
+constexpr size_t NUM_DEFINED_GATES = 83;
 
 enum class GateType : uint8_t {
     NOT_A_GATE = 0,
@@ -135,6 +135,7 @@ enum class GateType : uint8_t {
     Y_ERROR,
     Z_ERROR,
     I_ERROR,
+    LOSS,
     II_ERROR,
     PAULI_CHANNEL_1,
     PAULI_CHANNEL_2,

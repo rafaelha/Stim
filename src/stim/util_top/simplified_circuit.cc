@@ -269,6 +269,11 @@ struct Simplifier {
             case GateType::R:
                 yield({GateType::R, {}, ts, inst.tag});
                 break;
+            case GateType::LOSS:
+                // Loss is not decomposable into the base unitary/collapse gates.
+                // Preserve it so callers using the TableauSimulator can execute it.
+                yield(inst);
+                break;
 
             default:
                 throw std::invalid_argument("Unhandled in Simplifier::simplify_disjoint_1q_instruction: " + inst.str());

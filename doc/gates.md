@@ -67,6 +67,7 @@
     - [HERALDED_PAULI_CHANNEL_1](#HERALDED_PAULI_CHANNEL_1)
     - [II_ERROR](#II_ERROR)
     - [I_ERROR](#I_ERROR)
+    - [LOSS](#LOSS)
     - [PAULI_CHANNEL_1](#PAULI_CHANNEL_1)
     - [PAULI_CHANNEL_2](#PAULI_CHANNEL_2)
     - [X_ERROR](#X_ERROR)
@@ -3513,6 +3514,27 @@ Examples:
 
     # checks for you that the disjoint probabilities in the arguments are legal
     I_ERROR[MULTIPLE_NOISE_MECHANISMS](0.1, 0.2) 0 2 4
+
+<a name="LOSS"></a>
+### The 'LOSS' Instruction
+
+Marks each target qubit as lost with the given probability.
+
+Each target is sampled independently. Lost qubits are isolated from the rest
+of the tableau and subsequent measurements report that the qubit was lost.
+
+Parens Arguments:
+
+    A single float (p) specifying the probability of losing each target qubit.
+
+Targets:
+
+    Qubits to apply loss noise to.
+
+Examples:
+
+    # Independently lose qubits 0, 1, and 2 with probability 1% each.
+    LOSS(0.01) 0 1 2
 
 <a name="PAULI_CHANNEL_1"></a>
 ### The 'PAULI_CHANNEL_1' Instruction

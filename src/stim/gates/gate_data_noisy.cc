@@ -183,6 +183,39 @@ Examples:
     add_gate(
         failed,
         Gate{
+            .name = "LOSS",
+            .id = GateType::LOSS,
+            .best_candidate_inverse_id = GateType::LOSS,
+            .arg_count = 1,
+            .flags = (GateFlags)(GATE_IS_SINGLE_QUBIT_GATE | GATE_IS_NOISY | GATE_ARGS_ARE_DISJOINT_PROBABILITIES),
+            .category = "F_Noise Channels",
+            .help = R"MARKDOWN(
+Marks each target qubit as lost with the given probability.
+
+Each target is sampled independently. Lost qubits are isolated from the rest
+of the tableau and subsequent measurements report that the qubit was lost.
+
+Parens Arguments:
+
+    A single float (p) specifying the probability of losing each target qubit.
+
+Targets:
+
+    Qubits to apply loss noise to.
+
+Examples:
+
+    # Independently lose qubits 0, 1, and 2 with probability 1% each.
+    LOSS(0.01) 0 1 2
+)MARKDOWN",
+            .unitary_data = {},
+            .flow_data = {},
+            .h_s_cx_m_r_decomposition = nullptr,
+        });
+
+    add_gate(
+        failed,
+        Gate{
             .name = "II_ERROR",
             .id = GateType::II_ERROR,
             .best_candidate_inverse_id = GateType::II_ERROR,

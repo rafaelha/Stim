@@ -148,7 +148,7 @@ class Circuit:
         """
     def __imul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.Circuit:
         """Mutates the circuit by putting its contents into a REPEAT block.
 
@@ -221,7 +221,7 @@ class Circuit:
         """
     def __mul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.Circuit:
         """Repeats the circuit using a REPEAT block.
 
@@ -263,7 +263,7 @@ class Circuit:
         """
     def __rmul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.Circuit:
         """Repeats the circuit using a REPEAT block.
 
@@ -418,7 +418,7 @@ class Circuit:
         self,
         other: object,
         *,
-        atol: float,
+        atol: typing.SupportsFloat | typing.SupportsIndex,
     ) -> bool:
         """Checks if a circuit is approximately equal to another circuit.
 
@@ -958,7 +958,7 @@ class Circuit:
         decompose_errors: bool = False,
         flatten_loops: bool = False,
         allow_gauge_detectors: bool = False,
-        approximate_disjoint_errors: float = False,
+        approximate_disjoint_errors: typing.SupportsFloat | typing.SupportsIndex = False,
         ignore_decomposition_failures: bool = False,
         block_decomposition_from_introducing_remnant_edges: bool = False,
     ) -> stim.DetectorErrorModel:
@@ -1390,12 +1390,12 @@ class Circuit:
     def generated(
         code_task: str,
         *,
-        distance: int,
-        rounds: int,
-        after_clifford_depolarization: float = 0.0,
-        before_round_data_depolarization: float = 0.0,
-        before_measure_flip_probability: float = 0.0,
-        after_reset_flip_probability: float = 0.0,
+        distance: typing.SupportsInt | typing.SupportsIndex,
+        rounds: typing.SupportsInt | typing.SupportsIndex,
+        after_clifford_depolarization: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        before_round_data_depolarization: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        before_measure_flip_probability: typing.SupportsFloat | typing.SupportsIndex = 0.0,
+        after_reset_flip_probability: typing.SupportsFloat | typing.SupportsIndex = 0.0,
     ) -> stim.Circuit:
         """Generates common circuits.
 
@@ -1818,7 +1818,7 @@ class Circuit:
     def likeliest_error_sat_problem(
         self,
         *,
-        quantization: int = 100,
+        quantization: typing.SupportsInt | typing.SupportsIndex = 100,
         format: str = 'WDIMACS',
     ) -> str:
         """Makes a maxSAT problem for the circuit's likeliest undetectable logical error.
@@ -2208,8 +2208,8 @@ class Circuit:
     def search_for_undetectable_logical_errors(
         self,
         *,
-        dont_explore_detection_event_sets_with_size_above: int,
-        dont_explore_edges_with_degree_above: int,
+        dont_explore_detection_event_sets_with_size_above: typing.SupportsInt | typing.SupportsIndex,
+        dont_explore_edges_with_degree_above: typing.SupportsInt | typing.SupportsIndex,
         dont_explore_edges_increasing_symptom_degree: bool,
         canonicalize_circuit_errors: bool = False,
     ) -> List[stim.ExplainedError]:
@@ -3073,11 +3073,11 @@ class CircuitErrorLocation:
     def __init__(
         self,
         *,
-        tick_offset: int,
-        flipped_pauli_product: List[stim.GateTargetWithCoords],
+        tick_offset: typing.SupportsInt | typing.SupportsIndex,
+        flipped_pauli_product: collections.abc.Sequence[stim.GateTargetWithCoords],
         flipped_measurement: object,
         instruction_targets: stim.CircuitTargetsInsideInstruction,
-        stack_frames: List[stim.CircuitErrorLocationStackFrame],
+        stack_frames: collections.abc.Sequence[stim.CircuitErrorLocationStackFrame],
         noise_tag: str = '',
     ) -> None:
         """Creates a stim.CircuitErrorLocation.
@@ -3292,9 +3292,9 @@ class CircuitErrorLocationStackFrame:
     def __init__(
         self,
         *,
-        instruction_offset: int,
-        iteration_index: int,
-        instruction_repetitions_arg: int,
+        instruction_offset: typing.SupportsInt | typing.SupportsIndex,
+        iteration_index: typing.SupportsInt | typing.SupportsIndex,
+        instruction_repetitions_arg: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """Creates a stim.CircuitErrorLocationStackFrame.
 
@@ -3602,7 +3602,7 @@ class CircuitRepeatBlock:
         """
     def __init__(
         self,
-        repeat_count: int,
+        repeat_count: typing.SupportsInt | typing.SupportsIndex,
         body: stim.Circuit,
         *,
         tag: str = '',
@@ -3749,10 +3749,10 @@ class CircuitTargetsInsideInstruction:
         *,
         gate: str,
         tag: str = '',
-        args: List[float],
-        target_range_start: int,
-        target_range_end: int,
-        targets_in_range: List[stim.GateTargetWithCoords],
+        args: collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex],
+        target_range_start: typing.SupportsInt | typing.SupportsIndex,
+        target_range_end: typing.SupportsInt | typing.SupportsIndex,
+        targets_in_range: collections.abc.Sequence[stim.GateTargetWithCoords],
     ) -> None:
         """Creates a stim.CircuitTargetsInsideInstruction.
 
@@ -4069,7 +4069,7 @@ class CliffordString:
         """
     def __ipow__(
         self,
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
     ) -> object:
         """Mutates the CliffordString into itself raised to a power.
 
@@ -4136,7 +4136,7 @@ class CliffordString:
         """
     def __pow__(
         self,
-        power: int,
+        power: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.CliffordString:
         """Returns the CliffordString raised to a power.
 
@@ -4177,7 +4177,7 @@ class CliffordString:
         """
     def __rmul__(
         self,
-        lhs: int,
+        lhs: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.CliffordString:
         """CliffordString left-multiplication.
 
@@ -4304,7 +4304,7 @@ class CliffordString:
         """
     @staticmethod
     def random(
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.CliffordString:
         """Samples a uniformly random CliffordString.
 
@@ -4856,7 +4856,7 @@ class CompiledDetectorSampler:
         """
     def sample_bit_packed(
         self,
-        shots: int,
+        shots: typing.SupportsInt | typing.SupportsIndex,
         *,
         prepend_observables: bool = False,
         append_observables: bool = False,
@@ -5540,7 +5540,7 @@ class DemRepeatBlock:
         """
     def __init__(
         self,
-        repeat_count: int,
+        repeat_count: typing.SupportsInt | typing.SupportsIndex,
         block: stim.DetectorErrorModel,
     ) -> None:
         """Creates a stim.DemRepeatBlock.
@@ -5713,7 +5713,7 @@ class DemTarget:
         """
     @staticmethod
     def logical_observable_id(
-        index: int,
+        index: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DemTarget:
         """Returns a logical observable id identifying a frame change.
 
@@ -5736,7 +5736,7 @@ class DemTarget:
         """
     @staticmethod
     def relative_detector_id(
-        index: int,
+        index: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DemTarget:
         """Returns a relative detector id (e.g. "D5" in a .dem file).
 
@@ -5815,7 +5815,7 @@ class DemTargetWithCoords:
     def __init__(
         self,
         dem_target: stim.DemTarget,
-        coords: List[float],
+        coords: collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex],
     ) -> None:
         """Creates a stim.DemTargetWithCoords.
 
@@ -6029,7 +6029,7 @@ class DetectorErrorModel:
         """
     def __imul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DetectorErrorModel:
         """Mutates the detector error model by putting its contents into a repeat block.
 
@@ -6096,7 +6096,7 @@ class DetectorErrorModel:
         """
     def __mul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DetectorErrorModel:
         """Repeats the detector error model using a repeat block.
 
@@ -6138,7 +6138,7 @@ class DetectorErrorModel:
         """
     def __rmul__(
         self,
-        repetitions: int,
+        repetitions: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DetectorErrorModel:
         """Repeats the detector error model using a repeat block.
 
@@ -6176,7 +6176,7 @@ class DetectorErrorModel:
         self,
         instruction: object,
         parens_arguments: object = None,
-        targets: List[object] = (),
+        targets: collections.abc.Sequence[object] = (),
         *,
         tag: str = '',
     ) -> None:
@@ -6245,7 +6245,7 @@ class DetectorErrorModel:
         self,
         other: object,
         *,
-        atol: float,
+        atol: typing.SupportsFloat | typing.SupportsIndex,
     ) -> bool:
         """Checks if detector error models are approximately equal.
 
@@ -6622,7 +6622,7 @@ class DetectorErrorModel:
         """
     def rounded(
         self,
-        arg0: int,
+        arg0: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.DetectorErrorModel:
         """Creates an equivalent detector error model but with rounded error probabilities.
 
@@ -6825,8 +6825,8 @@ class ExplainedError:
     def __init__(
         self,
         *,
-        dem_error_terms: List[stim.DemTargetWithCoords],
-        circuit_error_locations: List[stim.CircuitErrorLocation],
+        dem_error_terms: collections.abc.Sequence[stim.DemTargetWithCoords],
+        circuit_error_locations: collections.abc.Sequence[stim.CircuitErrorLocation],
     ) -> None:
         """Creates a stim.ExplainedError.
 
@@ -9139,7 +9139,7 @@ class GateTargetWithCoords:
     def __init__(
         self,
         gate_target: object,
-        coords: List[float],
+        coords: collections.abc.Sequence[typing.SupportsFloat | typing.SupportsIndex],
     ) -> None:
         """Creates a stim.GateTargetWithCoords.
 
@@ -9403,7 +9403,7 @@ class PauliString:
         """
     def __itruediv__(
         self,
-        rhs: complex,
+        rhs: complex | typing.SupportsComplex | typing.SupportsFloat | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Inplace divides the Pauli string by a complex unit.
 
@@ -9580,7 +9580,7 @@ class PauliString:
         """
     def __setitem__(
         self,
-        index: int,
+        index: typing.SupportsInt | typing.SupportsIndex,
         new_pauli: object,
     ) -> None:
         """Mutates an entry in the pauli string using the encoding 0=I, 1=X, 2=Y, 3=Z.
@@ -9617,7 +9617,7 @@ class PauliString:
         """
     def __truediv__(
         self,
-        rhs: complex,
+        rhs: complex | typing.SupportsComplex | typing.SupportsFloat | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Divides the Pauli string by a complex unit.
 
@@ -9892,9 +9892,9 @@ class PauliString:
         """
     @staticmethod
     def iter_all(
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
         *,
-        min_weight: int = 0,
+        min_weight: typing.SupportsInt | typing.SupportsIndex = 0,
         max_weight: object = None,
         allowed_paulis: str = 'XYZ',
     ) -> stim.PauliStringIterator:
@@ -9984,7 +9984,7 @@ class PauliString:
         """
     @staticmethod
     def random(
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
         *,
         allow_imaginary: bool = False,
     ) -> stim.PauliString:
@@ -10328,7 +10328,7 @@ class Tableau:
         """
     def __init__(
         self,
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """Creates an identity tableau over the given number of qubits.
 
@@ -10386,7 +10386,7 @@ class Tableau:
         """
     def __pow__(
         self,
-        exponent: int,
+        exponent: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.Tableau:
         """Raises the tableau to an integer power.
 
@@ -10518,8 +10518,8 @@ class Tableau:
     @staticmethod
     def from_conjugated_generators(
         *,
-        xs: List[stim.PauliString],
-        zs: List[stim.PauliString],
+        xs: collections.abc.Sequence[stim.PauliString],
+        zs: collections.abc.Sequence[stim.PauliString],
     ) -> stim.Tableau:
         """Creates a tableau from the given outputs for each generator.
 
@@ -10947,7 +10947,7 @@ class Tableau:
         """
     def inverse_x_output(
         self,
-        input_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
         *,
         unsigned: bool = False,
     ) -> stim.PauliString:
@@ -10981,8 +10981,8 @@ class Tableau:
         """
     def inverse_x_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.inverse().x_output(input_index)[output_index]`
 
@@ -11017,7 +11017,7 @@ class Tableau:
         """
     def inverse_y_output(
         self,
-        input_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
         *,
         unsigned: bool = False,
     ) -> stim.PauliString:
@@ -11051,8 +11051,8 @@ class Tableau:
         """
     def inverse_y_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.inverse().y_output(input_index)[output_index]`
 
@@ -11087,7 +11087,7 @@ class Tableau:
         """
     def inverse_z_output(
         self,
-        input_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
         *,
         unsigned: bool = False,
     ) -> stim.PauliString:
@@ -11123,8 +11123,8 @@ class Tableau:
         """
     def inverse_z_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.inverse().z_output(input_index)[output_index]`
 
@@ -11159,7 +11159,7 @@ class Tableau:
         """
     @staticmethod
     def iter_all(
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
         *,
         unsigned: bool = False,
     ) -> stim.TableauIterator:
@@ -11211,7 +11211,7 @@ class Tableau:
         """
     @staticmethod
     def random(
-        num_qubits: int,
+        num_qubits: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.Tableau:
         """Samples a uniformly random Clifford operation and returns its tableau.
 
@@ -11719,7 +11719,7 @@ class Tableau:
         """
     def x_output(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Returns the result of conjugating a Pauli X by the tableau's Clifford operation.
 
@@ -11740,8 +11740,8 @@ class Tableau:
         """
     def x_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.x_output(input_index)[output_index]`
 
@@ -11776,7 +11776,7 @@ class Tableau:
         """
     def x_sign(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns just the sign of the result of conjugating an X generator.
 
@@ -11794,7 +11794,7 @@ class Tableau:
         """
     def y_output(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Returns the result of conjugating a Pauli Y by the tableau's Clifford operation.
 
@@ -11815,8 +11815,8 @@ class Tableau:
         """
     def y_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.y_output(input_index)[output_index]`
 
@@ -11851,7 +11851,7 @@ class Tableau:
         """
     def y_sign(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns just the sign of the result of conjugating a Y generator.
 
@@ -11871,7 +11871,7 @@ class Tableau:
         """
     def z_output(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Returns the result of conjugating a Pauli Z by the tableau's Clifford operation.
 
@@ -11892,8 +11892,8 @@ class Tableau:
         """
     def z_output_pauli(
         self,
-        input_index: int,
-        output_index: int,
+        input_index: typing.SupportsInt | typing.SupportsIndex,
+        output_index: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Constant-time version of `tableau.z_output(input_index)[output_index]`
 
@@ -11928,7 +11928,7 @@ class Tableau:
         """
     def z_sign(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns just the sign of the result of conjugating a Z generator.
 
@@ -12269,6 +12269,28 @@ class TableauSimulator:
                 ],
             )
         """
+    def current_measurement_loss_record(
+        self,
+    ) -> List[bool]:
+        """Returns a copy of the loss flags aligned with the measurement record.
+
+        A true entry means the corresponding measurement targeted a lost qubit
+        (or a product containing a lost qubit) and therefore had no binary outcome.
+
+        Examples:
+            >>> import stim
+            >>> s = stim.TableauSimulator()
+            >>> s.loss_channel(0, 1)
+            >>> s.measure(0) is None
+            True
+            >>> s.current_measurement_record()
+            [False]
+            >>> s.current_measurement_loss_record()
+            [True]
+
+        Returns:
+            A list of booleans aligned with current_measurement_record().
+        """
     def current_measurement_record(
         self,
     ) -> List[bool]:
@@ -12463,7 +12485,7 @@ class TableauSimulator:
     def do_tableau(
         self,
         tableau: stim.Tableau,
-        targets: List[int],
+        targets: collections.abc.Sequence[typing.SupportsInt | typing.SupportsIndex],
     ) -> None:
         """Applies a custom tableau operation to qubits in the simulator.
 
@@ -12586,6 +12608,14 @@ class TableauSimulator:
             >>> print(" ".join(str(s.peek_bloch(k)) for k in range(3)))
             -X +Z +Y
         """
+    def is_lost(
+        self,
+        target: int,
+    ) -> bool:
+        """Returns whether a qubit is currently lost.
+
+        Untracked qubits are not lost.
+        """
     def iswap(
         self,
         *targets,
@@ -12632,10 +12662,30 @@ class TableauSimulator:
             >>> print(" ".join(str(s.peek_bloch(k)) for k in range(4)))
             +_ +_ -Y +Z
         """
+    def loss_channel(
+        self,
+        target: int,
+        probability: float,
+    ) -> None:
+        """Probabilistically marks a qubit as lost.
+
+        When loss occurs, the qubit is isolated and its hidden tableau state is
+        reset to |0>. Gates and ordinary resets then ignore it until
+        reset_loss_channel is called.
+
+        Args:
+            target: The index of the target qubit.
+            probability: The loss probability, between 0 and 1 inclusive.
+        """
+    def loss_values(
+        self,
+    ) -> List[bool]:
+        """Returns the loss state of every tracked qubit.
+        """
     def measure(
         self,
         target: int,
-    ) -> bool:
+    ) -> Optional[bool]:
         """Measures a single qubit.
 
         Unlike the other methods on TableauSimulator, this one does not broadcast
@@ -12648,7 +12698,7 @@ class TableauSimulator:
             target: The index of the qubit to measure.
 
         Returns:
-            The measurement result as a bool.
+            The measurement result as a bool, or None if the qubit is lost.
 
         Examples:
             >>> import stim
@@ -12662,7 +12712,7 @@ class TableauSimulator:
     def measure_kickback(
         self,
         target: int,
-    ) -> tuple:
+    ) -> Tuple[Optional[bool], Optional[stim.PauliString]]:
         """Measures a qubit and returns the result as well as its Pauli kickback (if any).
 
         The "Pauli kickback" of a stabilizer circuit measurement is a set of Pauli
@@ -12684,7 +12734,8 @@ class TableauSimulator:
 
         Returns:
             A (result, kickback) tuple.
-            The result is a bool containing the measurement's output.
+            The result is a bool containing the measurement's output, or None if the
+            qubit is lost.
             The kickback is either None (meaning the measurement was deterministic) or a
             stim.PauliString (meaning the measurement was random, and the operations in
             the Pauli string flip between the two possible post-measurement states).
@@ -12716,15 +12767,16 @@ class TableauSimulator:
         """
     def measure_many(
         self,
-        *targets,
-    ) -> List[bool]:
+        *targets: int,
+    ) -> List[Optional[bool]]:
         """Measures multiple qubits.
 
         Args:
             *targets: The indices of the qubits to measure.
 
         Returns:
-            The measurement results as a list of bools.
+            The measurement results as a list of bools or None values. None indicates
+            a lost qubit.
 
         Examples:
             >>> import stim
@@ -12738,7 +12790,7 @@ class TableauSimulator:
         observable: stim.PauliString,
         *,
         flip_probability: float = 0.0,
-    ) -> bool:
+    ) -> Optional[bool]:
         """Measures an pauli string observable, as if by an MPP instruction.
 
         Args:
@@ -12747,7 +12799,8 @@ class TableauSimulator:
                 flipped.
 
         Returns:
-            The result of the measurement.
+            The result of the measurement, or None when the observable contains a
+            lost qubit.
 
             The result is also recorded into the measurement record.
 
@@ -12791,7 +12844,7 @@ class TableauSimulator:
         """
     def peek_bloch(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> stim.PauliString:
         """Returns the state of the qubit as a single-qubit stim.PauliString stabilizer.
 
@@ -12883,7 +12936,7 @@ class TableauSimulator:
         """
     def peek_x(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns the expected value of a qubit's X observable.
 
@@ -12916,7 +12969,7 @@ class TableauSimulator:
         """
     def peek_y(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns the expected value of a qubit's Y observable.
 
@@ -12949,7 +13002,7 @@ class TableauSimulator:
         """
     def peek_z(
         self,
-        target: int,
+        target: typing.SupportsInt | typing.SupportsIndex,
     ) -> int:
         """Returns the expected value of a qubit's Z observable.
 
@@ -13148,6 +13201,15 @@ class TableauSimulator:
             >>> s.peek_bloch(0)
             stim.PauliString("+Z")
         """
+    def reset_loss_channel(
+        self,
+        target: int,
+    ) -> None:
+        """Reactivates a lost qubit in the |0> state.
+
+        Args:
+            target: The index of the target qubit.
+        """
     def reset_x(
         self,
         *targets,
@@ -13268,7 +13330,7 @@ class TableauSimulator:
         """
     def set_num_qubits(
         self,
-        new_num_qubits: int,
+        new_num_qubits: typing.SupportsInt | typing.SupportsIndex,
     ) -> None:
         """Resizes the simulator's internal state.
 
@@ -13963,7 +14025,7 @@ def gate_data(
     """
 def main(
     *,
-    command_line_args: List[str],
+    command_line_args: collections.abc.Sequence[str],
 ) -> int:
     """Runs the command line tool version of stim on the given arguments.
 
@@ -14206,7 +14268,7 @@ def target_inv(
     meaning the measurement result from qubit 1 should be inverted when reported.
     """
 def target_logical_observable_id(
-    index: int,
+    index: typing.SupportsInt | typing.SupportsIndex,
 ) -> stim.DemTarget:
     """Returns a logical observable id identifying a frame change.
 
@@ -14267,7 +14329,7 @@ def target_pauli(
         ''')
     """
 def target_rec(
-    lookback_index: int,
+    lookback_index: typing.SupportsInt | typing.SupportsIndex,
 ) -> stim.GateTarget:
     """Returns a measurement record target with the given lookback.
 
@@ -14294,7 +14356,7 @@ def target_rec(
         ''')
     """
 def target_relative_detector_id(
-    index: int,
+    index: typing.SupportsInt | typing.SupportsIndex,
 ) -> stim.DemTarget:
     """Returns a relative detector id (e.g. "D5" in a .dem file).
 
@@ -14333,7 +14395,7 @@ def target_separator(
         ''')
     """
 def target_sweep_bit(
-    sweep_bit_index: int,
+    sweep_bit_index: typing.SupportsInt | typing.SupportsIndex,
 ) -> stim.GateTarget:
     """Returns a sweep bit target that can be passed into `stim.Circuit.append`.
 

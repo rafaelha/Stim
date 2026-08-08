@@ -26,6 +26,7 @@
 
 #include "stim/circuit/circuit.h"
 #include "stim/io/measure_record.h"
+#include "stim/mem/simd_bits.h"
 #include "stim/stabilizers/tableau.h"
 #include "stim/stabilizers/tableau_transposed_raii.h"
 
@@ -39,9 +40,11 @@ namespace stim {
 template <size_t W>
 struct TableauSimulator {
     Tableau<W> inv_state;
+    simd_bits<W> lost_qubits;
     std::mt19937_64 rng;
     int8_t sign_bias;
     MeasureRecord measurement_record;
+    MeasureRecord measurement_loss_record;
     bool last_correlated_error_occurred;
 
     /// Args:
@@ -73,6 +76,18 @@ struct TableauSimulator {
     ///
     /// Shrinking the size will result in qubits beyond the size threshold being collapsed and discarded.
     void set_num_qubits(size_t new_num_qubits);
+
+    /// Returns whether the given qubit has been lost.
+    bool is_lost(size_t target) const;
+
+    /// Marks a qubit as lost, isolating and resetting its hidden tableau state to |0>.
+    void set_lost(size_t target);
+
+    /// Marks a qubit as lost with the given probability.
+    void loss_channel(size_t target, double probability);
+
+    /// Restores a lost qubit to the active |0> state.
+    void reset_loss_channel(size_t target);
 
     /// Finds a state vector satisfying the current stabilizer generators, and returns a vector simulator in that state.
     VectorSimulator to_vector_sim() const;
@@ -274,6 +289,11 @@ struct TableauSimulator {
     void postselect_observable(PauliStringRef<W> observable, bool desired_result);
 
    private:
+    bool is_lost_target(uint32_t encoded_target) const;
+    void sync_measurement_loss_record();
+    void record_measurement_result(bool result, bool lost = false);
+    bool pauli_product_has_lost_target(SpanRef<const GateTarget> targets) const;
+    std::vector<GateTarget> pauli_product_without_lost_targets(SpanRef<const GateTarget> targets) const;
     uint32_t try_isolate_observable_to_qubit_z(PauliStringRef<W> observable, bool undo);
     void do_MXX_disjoint_controls_segment(const CircuitInstruction &inst);
     void do_MYY_disjoint_controls_segment(const CircuitInstruction &inst);

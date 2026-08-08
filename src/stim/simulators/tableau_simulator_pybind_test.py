@@ -699,6 +699,56 @@ def test_depolarize2_error():
         s.depolarize2(1, p=1, q=2)
 
 
+def test_loss_channel_lifecycle_and_measurements():
+    s = stim.TableauSimulator(seed=0)
+    assert not s.is_lost(100)
+
+    s.loss_channel(2, 0)
+    assert s.num_qubits == 3
+    assert s.loss_values() == [False, False, False]
+    with pytest.raises(ValueError, match="0 <= probability <= 1"):
+        s.loss_channel(0, -0.1)
+
+    s.x(0)
+    s.loss_channel(0, 1)
+    assert s.is_lost(0)
+    assert s.loss_values() == [True, False, False]
+
+    s.x(0)
+    assert s.measure(0) is None
+    assert s.measure_many(0, 1) == [None, False]
+    assert s.measure_observable(stim.PauliString("XX")) is None
+    assert s.measure_kickback(0) == (None, None)
+    with pytest.raises(ValueError, match="lost qubit"):
+        s.postselect_z(0, desired_value=False)
+    with pytest.raises(ValueError, match="lost qubit"):
+        s.postselect_observable(stim.PauliString("Z"))
+    assert s.current_measurement_record() == [False, False, False, False, False]
+    assert s.current_measurement_loss_record() == [True, True, False, True, True]
+
+    c = s.copy(seed=1)
+    assert c.is_lost(0)
+
+    s.reset_loss_channel(0)
+    assert not s.is_lost(0)
+    assert s.measure(0) is False
+
+
+def test_state_replacement_clears_loss_state():
+    s = stim.TableauSimulator()
+    s.loss_channel(0, 1)
+    s.set_inverse_tableau(stim.Tableau(1))
+    assert s.loss_values() == [False]
+
+    s.loss_channel(0, 1)
+    s.set_state_from_stabilizers([stim.PauliString("+Z")])
+    assert s.loss_values() == [False]
+
+    s.loss_channel(0, 1)
+    s.set_state_from_state_vector([1, 0], endian="little")
+    assert s.loss_values() == [False]
+
+
 def test_bad_inverse_padding_issue_is_fixed():
     circuit = stim.Circuit()
     circuit.append("H", range(467))

@@ -359,12 +359,22 @@ def _plot_results(
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
+    # Keep compiled/non-compiled variants of the same simulator visually
+    # grouped. The dashed line is the compiled control; the solid line is
+    # the non-compiled/tableau-style implementation.
     colors = {
         "Stim": "#2563eb",
-        "Stim compiled": "#7c3aed",
+        "Stim compiled": "#2563eb",
         "ppvm": "#ea580c",
         "Clifft": "#16a34a",
-        "Clifft compiled": "#0891b2",
+        "Clifft compiled": "#16a34a",
+    }
+    linestyles = {
+        "Stim": "-",
+        "Stim compiled": "--",
+        "ppvm": "-",
+        "Clifft": "-",
+        "Clifft compiled": "--",
     }
     markers = {
         "Stim": "o",
@@ -396,6 +406,7 @@ def _plot_results(
                     [point[1] for point in points],
                     color=colors[simulator],
                     marker=markers[simulator],
+                    linestyle=linestyles[simulator],
                     linewidth=1.8,
                     markersize=5.5,
                     label=simulator,

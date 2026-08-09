@@ -13,7 +13,7 @@ By default, each point is one shot and the reported value is the minimum of five
 
 Use `--shots 1024 --per-sample` to time a batch of 1,024 samples and report seconds per sample. For compiled rows, compilation is performed while constructing the benchmark case, before any timed run; only sampling is included in the five-run minimum. The batch plot and CSV use the `_batch1024` suffix when requested.
 
-Compiled controls are plotted only in `benchmark_no_loss.png`: the LOSS figure remains the three LOSS-capable, non-compiled backends.
+Compiled controls are plotted only in `benchmark_no_loss.png`: the LOSS figure remains the three LOSS-capable, non-compiled backends. In both figures, a simulator keeps one color across variants; compiled curves use dashed lines and non-compiled curves use solid lines.
 
 The loss set adds `LOSS(0.001)` after every qubit-targeting gate, including noise channels and measurement/reset operations. Annotation instructions and `TICK` are not gates and are left unchanged. Repeat blocks are preserved in the Stim/Clifft loss circuit.
 
@@ -86,6 +86,50 @@ python benchmarks/merge_batch_compiled_results.py \
 `merge_batch_compiled_results.py` records the unavailable Clifft d=50 point
 when its compilation is killed by the machine, and writes
 `benchmark_no_loss_batch1024.png` with log-scaled axes and seconds per sample.
+
+## Timing audit
+
+The regular benchmark's timed region starts after `build_case` has generated
+the Stim circuit, parsed the ppvm/Clifft representation, and constructed any
+compiled sampler. It therefore does not charge text parsing to a sample. To
+check whether one-shot calls are nevertheless a misleading measure of
+non-compiled throughput, `benchmark_timing_audit.py` measures four modes:
+
+- `parse_only`: parse an already-created circuit string;
+- `parse_plus_sample`: parse that string and simulate one sample;
+- `warm_batch`: one pre-parsed API call with `shots=N`;
+- `repeat_one_shot`: `N` separate pre-parsed one-shot API calls.
+
+The checked-in `results/timing_audit.csv` is a five-run-minimum audit at d=5
+and d=7 for both no-loss and LOSS circuits. It uses the branch-native Stim
+polyfill and Clifft 0.7.0, and batches of 1, 4, 16, and 64. The main findings
+are:
+
+- Parsing is not the dominant cost of the measured runs. At d=5, parsing is
+  36 microseconds for Stim and 194 microseconds for Clifft without LOSS,
+  compared with 58 microseconds and 1.91 milliseconds for their warm
+  one-shot simulations. With LOSS, the corresponding Clifft values are 434
+  microseconds and 28.4 milliseconds.
+- One shot is representative of Stim's tableau path: its per-sample time is
+  nearly flat as the batch grows because `_run_stim` intentionally creates a
+  fresh `TableauSimulator` for every sample.
+- One-shot Clifft no-loss calls are not representative of steady-state
+  throughput. At d=5, Clifft falls from 1.91 milliseconds/sample at one shot
+  to 33 microseconds/sample in one 64-shot call; 64 separate one-shot calls
+  remain at about 1.97 milliseconds/sample. At d=7 the corresponding batch
+  values are 6.09 milliseconds/sample and 104 microseconds/sample.
+- LOSS makes Clifft's per-sample state evolution much more expensive, but
+  batching still helps: at d=5 the Clifft LOSS path drops from 28.4 to 16.3
+  milliseconds/sample between one and 64 shots; at d=7 it drops from 303 to
+  193 milliseconds/sample. Separate one-shot calls do not get that
+  amortization.
+
+Consequently, one-shot timings are appropriate for reporting per-shot latency
+and for Stim's non-compiled path, but they overstate Clifft non-compiled
+steady-state throughput. The final no-loss comparison retains the one-shot
+latency curves for the original apples-to-apples benchmark and adds the
+compiled batch-1024 controls; the audit documents the batch sensitivity rather
+than silently replacing the requested one-shot measurement.
 
 ## Recorded cloud run
 

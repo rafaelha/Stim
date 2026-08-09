@@ -233,21 +233,28 @@ def _timed_minimum(
     return min(timings), timings
 
 
-def _run_stim(stim_module: Any, circuit: Any, seed: int) -> None:
-    simulator = stim_module.TableauSimulator(seed=seed)
-    simulator.do(circuit)
+def _run_stim(stim_module: Any, circuit: Any, seed: int, shots: int = SHOTS) -> None:
+    for shot in range(shots):
+        simulator = stim_module.TableauSimulator(seed=seed + shot)
+        simulator.do(circuit)
 
 
-def _run_stim_compiled(sampler: Any, seed: int) -> None:
+def _run_stim_compiled(sampler: Any, seed: int, shots: int = SHOTS) -> None:
     # Stim's compiled sampler does not expose a per-call seed in the current
     # Python API.  The benchmark measures execution time, so use its default
     # random stream; the seed argument is retained for the common runner API.
     del seed
-    sampler.sample(shots=SHOTS)
+    sampler.sample(shots=shots)
 
 
-def _run_ppvm_no_loss(ppvm_module: Any, program: Any, num_qubits: int, seed: int) -> None:
-    ppvm_module.sample_stim(program, n_qubits=num_qubits, num_shots=SHOTS, seed=seed)
+def _run_ppvm_no_loss(
+    ppvm_module: Any,
+    program: Any,
+    num_qubits: int,
+    seed: int,
+    shots: int = SHOTS,
+) -> None:
+    ppvm_module.sample_stim(program, n_qubits=num_qubits, num_shots=shots, seed=seed)
 
 
 def _run_ppvm_loss(
@@ -256,20 +263,33 @@ def _run_ppvm_loss(
     num_qubits: int,
     probability: float,
     seed: int,
+    shots: int = SHOTS,
 ) -> None:
-    tableau = ppvm_module.GeneralizedTableau(num_qubits, seed=seed)
-    for program, qubits in groups:
-        tableau.do(program)
-        for qubit in qubits:
-            tableau.loss_channel(qubit, probability)
+    for shot in range(shots):
+        tableau = ppvm_module.GeneralizedTableau(num_qubits, seed=seed + shot)
+        for program, qubits in groups:
+            tableau.do(program)
+            for qubit in qubits:
+                tableau.loss_channel(qubit, probability)
 
 
-def _run_clifft(noncomp_module: Any, circuit: Any, model: Any, seed: int) -> None:
-    noncomp_module.sample(circuit, model, shots=SHOTS, seed=seed)
+def _run_clifft(
+    noncomp_module: Any,
+    circuit: Any,
+    model: Any,
+    seed: int,
+    shots: int = SHOTS,
+) -> None:
+    noncomp_module.sample(circuit, model, shots=shots, seed=seed)
 
 
-def _run_clifft_compiled(clifft_module: Any, program: Any, seed: int) -> None:
-    clifft_module.sample(program, shots=SHOTS, seed=seed)
+def _run_clifft_compiled(
+    clifft_module: Any,
+    program: Any,
+    seed: int,
+    shots: int = SHOTS,
+) -> None:
+    clifft_module.sample(program, shots=shots, seed=seed)
 
 
 def _result_row(
@@ -326,7 +346,13 @@ def _time_one(
         )
 
 
-def _plot_results(rows: list[dict[str, str]], output_dir: Path) -> tuple[Path, Path]:
+def _plot_results(
+    rows: list[dict[str, str]],
+    output_dir: Path,
+    shots: int = SHOTS,
+    per_sample: bool = False,
+    filename_suffix: str = "",
+) -> tuple[Path, Path]:
     os.environ.setdefault("MPLCONFIGDIR", str(output_dir / ".mplconfig"))
     import matplotlib
 
@@ -357,7 +383,7 @@ def _plot_results(rows: list[dict[str, str]], output_dir: Path) -> tuple[Path, P
             points = sorted(
                 (
                     int(row["distance"]),
-                    float(row["min_seconds"]),
+                    float(row["min_seconds"]) / shots if per_sample else float(row["min_seconds"]),
                 )
                 for row in rows
                 if row["variant"] == variant
@@ -377,13 +403,17 @@ def _plot_results(rows: list[dict[str, str]], output_dir: Path) -> tuple[Path, P
         axis.set_xscale("log")
         axis.set_yscale("log")
         axis.set_xlabel("Surface-code distance d")
-        axis.set_ylabel("Minimum runtime (seconds, 5 runs)")
-        axis.set_title(title)
+        if per_sample:
+            axis.set_ylabel(f"Time per sample (seconds, batch size {shots}, min of 5 runs)")
+            axis.set_title(f"{title} (batch size {shots})")
+        else:
+            axis.set_ylabel("Minimum runtime (seconds, 5 runs)")
+            axis.set_title(title)
         axis.grid(True, which="both", color="#cbd5e1", alpha=0.45, linewidth=0.7)
         handles, labels = axis.get_legend_handles_labels()
         if handles:
             axis.legend(frameon=False)
-        path = output_dir / filename
+        path = output_dir / filename.replace(".png", f"{filename_suffix}.png")
         figure.savefig(path, dpi=180)
         plt.close(figure)
         paths.append(path)
@@ -399,7 +429,13 @@ def run_benchmark(
     loss_probability: float = LOSS_PROBABILITY,
     simulators: Sequence[str] = ("Stim", "ppvm", "Clifft"),
     variants: Sequence[str] = ("no_loss", "loss"),
+    shots: int = SHOTS,
+    per_sample: bool = False,
+    plot_suffix: str = "",
+    csv_name: str = "benchmark_results.csv",
 ) -> list[dict[str, str]]:
+    if shots < 1:
+        raise ValueError("shots must be positive")
     selected_simulators = set(simulators)
     selected_variants = set(variants)
     stim_module, ppvm_module, clifft_module, noncomp_module, _ = _imports(
@@ -407,7 +443,7 @@ def run_benchmark(
     )
     include_loss = "loss" in selected_variants
     output_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = output_dir / "benchmark_results.csv"
+    csv_path = output_dir / csv_name
     rows: list[dict[str, str]] = []
     with csv_path.open("w", newline="") as handle:
         writer = csv.DictWriter(
@@ -438,7 +474,9 @@ def run_benchmark(
             if "Stim" in selected_simulators and "no_loss" in selected_variants:
                 case_rows.append(
                     _time_one(
-                        lambda seed, c=case: _run_stim(stim_module, c.stim_circuit, seed),
+                        lambda seed, c=case: _run_stim(
+                            stim_module, c.stim_circuit, seed, shots=shots
+                        ),
                         distance=distance,
                         variant="no_loss",
                         simulator="Stim",
@@ -450,7 +488,7 @@ def run_benchmark(
                 case_rows.append(
                     _time_one(
                         lambda seed, c=case: _run_stim_compiled(
-                            c.stim_compiled_sampler, seed
+                            c.stim_compiled_sampler, seed, shots=shots
                         ),
                         distance=distance,
                         variant="no_loss",
@@ -463,7 +501,7 @@ def run_benchmark(
                 case_rows.append(
                     _time_one(
                         lambda seed, c=case: _run_ppvm_no_loss(
-                            ppvm_module, c.ppvm_program, c.num_qubits, seed
+                            ppvm_module, c.ppvm_program, c.num_qubits, seed, shots=shots
                         ),
                         distance=distance,
                         variant="no_loss",
@@ -476,7 +514,7 @@ def run_benchmark(
                 case_rows.append(
                     _time_one(
                         lambda seed, c=case: _run_clifft(
-                            noncomp_module, c.clifft_circuit, no_loss_model, seed
+                            noncomp_module, c.clifft_circuit, no_loss_model, seed, shots=shots
                         ),
                         distance=distance,
                         variant="no_loss",
@@ -489,7 +527,7 @@ def run_benchmark(
                 case_rows.append(
                     _time_one(
                         lambda seed, c=case: _run_clifft_compiled(
-                            clifft_module, c.clifft_compiled_program, seed
+                            clifft_module, c.clifft_compiled_program, seed, shots=shots
                         ),
                         distance=distance,
                         variant="no_loss",
@@ -501,7 +539,9 @@ def run_benchmark(
             if "Stim" in selected_simulators and "loss" in selected_variants:
                 case_rows.append(
                     _time_one(
-                        lambda seed, c=case: _run_stim(stim_module, c.stim_loss_circuit, seed),
+                        lambda seed, c=case: _run_stim(
+                            stim_module, c.stim_loss_circuit, seed, shots=shots
+                        ),
                         distance=distance,
                         variant="loss",
                         simulator="Stim",
@@ -518,6 +558,7 @@ def run_benchmark(
                             c.num_qubits,
                             loss_probability,
                             seed,
+                            shots=shots,
                         ),
                         distance=distance,
                         variant="loss",
@@ -530,7 +571,11 @@ def run_benchmark(
                 case_rows.append(
                     _time_one(
                         lambda seed, c=case: _run_clifft(
-                            noncomp_module, c.clifft_loss_circuit, loss_model, seed
+                            noncomp_module,
+                            c.clifft_loss_circuit,
+                            loss_model,
+                            seed,
+                            shots=shots,
                         ),
                         distance=distance,
                         variant="loss",
@@ -543,7 +588,13 @@ def run_benchmark(
             writer.writerows(case_rows)
             handle.flush()
 
-    no_loss_path, loss_path = _plot_results(rows, output_dir)
+    no_loss_path, loss_path = _plot_results(
+        rows,
+        output_dir,
+        shots=shots,
+        per_sample=per_sample,
+        filename_suffix=plot_suffix,
+    )
     print(f"wrote {csv_path}")
     print(f"wrote {no_loss_path}")
     print(f"wrote {loss_path}")
@@ -594,6 +645,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
     parser.add_argument("--repeats", type=int, default=REPEATS)
+    parser.add_argument("--shots", type=int, default=SHOTS)
+    parser.add_argument("--per-sample", action="store_true")
+    parser.add_argument("--plot-suffix", default="")
+    parser.add_argument("--csv-name", default="benchmark_results.csv")
     parser.add_argument("--distances", type=int, nargs="+", default=list(DISTANCES))
     parser.add_argument(
         "--simulators",
@@ -620,6 +675,10 @@ def main() -> None:
         output_dir=args.output_dir,
         simulators=args.simulators,
         variants=args.variants,
+        shots=args.shots,
+        per_sample=args.per_sample,
+        plot_suffix=args.plot_suffix,
+        csv_name=args.csv_name,
     )
 
 

@@ -29,6 +29,9 @@ wheelhouse/*
 *.pyd
 venv
 .venv
+.venv-benchmark/
+.benchmark_local_points/
+.benchmark_mplconfig/
 **/LastTest.log
 *.so
 .clwb/*

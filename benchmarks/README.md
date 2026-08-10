@@ -171,6 +171,42 @@ build was not available in the cloud image; Clifft was 0.7.0.
 
 References: [Stim circuit generation](https://github.com/quantumlib/Stim/wiki/Stim-vDev-Guide), [ppvm](https://github.com/QuEraComputing/ppvm), [Clifft leakage/loss sampling](https://clifft.readthedocs.io/en/latest/leakage.html), and [QDK-EC's loss tutorial](https://github.com/microsoft/qdk-ec/blob/main/deq/documents/tutorial/chapters/qdk-loss-simulation.md).
 
+## Local four-simulator rerun
+
+The local runner isolates every simulator/distance datapoint in a subprocess,
+limits the complete five-run datapoint to 60 seconds, records timeouts instead
+of aborting, and regenerates the corrected LOSS figure.
+
+On Linux or macOS with Python 3.12, from the repository root:
+
+```bash
+python3.12 -m venv .venv-benchmark
+source .venv-benchmark/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -e .
+python -m pip install 'clifft==0.7.0' 'qdk==1.31.0'
+python -m pip install \
+  'ppvm @ git+https://github.com/QuEraComputing/ppvm.git@661fc66fffe1826dad5ee14b514f151b8703a69e#subdirectory=ppvm-python'
+
+export QDK_PYTHON_TELEMETRY=none
+python benchmarks/loss_simulator_benchmark.py --self-test
+python benchmarks/run_local_loss_benchmark.py --timeout 60
+```
+
+ppvm requires a Rust toolchain to build. If its native build reports a missing
+AES target, prefix the ppvm installation command with:
+
+```bash
+RUSTFLAGS='-C target-feature=+aes,+sse2'
+```
+
+The resulting figure is `benchmarks/results/final_benchmark_loss.png`; combined
+and raw results are written to `benchmarks/results/final_benchmark_results.csv`
+and `benchmarks/results/final_raw/`. Timed-out points remain absent from the
+curve and have an explicit error in the CSV. Use `--distances 5 7 --repeats 1`
+for a quick trial, or `--no-report --raw-output-dir /tmp/loss-smoke` to avoid
+overwriting the checked-in results during a smoke test.
+
 ## Final favorable-settings run
 
 `final_benchmark_report.py` assembles the final runs and renders

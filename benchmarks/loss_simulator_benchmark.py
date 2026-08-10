@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Benchmark Stim, ppvm, and Clifft on surface-code circuits with loss.
+"""Benchmark Stim, ppvm, Clifft, and QDK-EC on surface-code circuits with loss.
 
 The no-loss control can use either the non-computational APIs or the compiled
 samplers. The compiled curves precompile before timing: Stim uses
 ``Circuit.compile_sampler`` and Clifft uses ``clifft.compile``. LOSS runs use
 the non-computational APIs because those are the implementations that support
-the LOSS instruction.
+the LOSS instruction. QDK-EC's QIR is compiled before timing and sampled via
+``qdk.simulation.run_qir`` using QDK's ``LOSS_ERROR`` Stim extension.
 
 The current ppvm parser on ``main`` predates the ``LOSS`` instruction. Its loss
 benchmark therefore runs operation groups through a ``GeneralizedTableau`` and
@@ -61,9 +62,13 @@ class CircuitCase:
     clifft_circuit: Any | None
     clifft_loss_circuit: Any | None
     clifft_compiled_program: Any | None
+    qdk_qir: Any | None
+    qdk_noise: Any | None
 
 
-def _imports(require_ppvm: bool = True) -> tuple[Any, Any, Any, Any, Any]:
+def _imports(
+    require_ppvm: bool = True, require_qdk: bool = False
+) -> tuple[Any, Any, Any, Any, Any, Any, Any]:
     """Import benchmark dependencies with a useful error message."""
 
     try:
@@ -73,14 +78,23 @@ def _imports(require_ppvm: bool = True) -> tuple[Any, Any, Any, Any, Any]:
         ppvm = None
         if require_ppvm:
             import ppvm
+        qdk_stim = None
+        qdk_run_qir = None
+        if require_qdk:
+            # Importing qdk can otherwise start an unrelated telemetry worker,
+            # which would contaminate a local timing run.
+            os.environ.setdefault("QDK_PYTHON_TELEMETRY", "none")
+            import qdk.stim as qdk_stim
+            from qdk.simulation import run_qir as qdk_run_qir
     except ImportError as exc:  # pragma: no cover - exercised by CLI users.
         raise SystemExit(
             "This benchmark needs the local Stim build plus clifft"
             + (" and ppvm" if require_ppvm else "")
+            + (" and qdk" if require_qdk else "")
             + ". "
             "See benchmarks/README.md for installation instructions."
         ) from exc
-    return stim, ppvm, clifft, noncomp, clifft.parse
+    return stim, ppvm, clifft, noncomp, clifft.parse, qdk_stim, qdk_run_qir
 
 
 def _qubit_targets(operation: Any) -> list[int]:
@@ -110,6 +124,16 @@ def add_loss_after_gates(stim_module: Any, circuit: Any, probability: float) -> 
         if qubits:
             output.append("LOSS", qubits, probability)
     return output
+
+
+def qdk_loss_source(circuit: Any) -> str:
+    """Translate branch-native ``LOSS`` into QDK's ``LOSS_ERROR`` spelling."""
+
+    source = str(circuit)
+    translated = source.replace("LOSS(", "LOSS_ERROR(")
+    if "LOSS(" in translated or "LOSS_ERROR(" not in translated:
+        raise ValueError("expected at least one LOSS instruction to translate")
+    return translated
 
 
 def _parse_ppvm_program(ppvm_module: Any, circuit: Any) -> Any:
@@ -168,17 +192,21 @@ def build_case(
     loss_probability: float,
     include_loss: bool = True,
     simulators: Sequence[str] | None = None,
+    qdk_stim_module: Any | None = None,
 ) -> CircuitCase:
     selected_simulators = set(
         simulators
         if simulators is not None
-        else ("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled")
+        else ("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled", "QDK-EC")
     )
-    need_stim_loss = include_loss and "Stim" in selected_simulators
+    need_stim_loss = include_loss and bool(
+        selected_simulators.intersection(("Stim", "QDK-EC"))
+    )
     need_clifft = bool(selected_simulators.intersection(("Clifft", "Clifft compiled")))
     need_clifft_loss = include_loss and "Clifft" in selected_simulators
     need_ppvm = "ppvm" in selected_simulators
     need_stim_compiled = "Stim compiled" in selected_simulators
+    need_qdk = include_loss and "QDK-EC" in selected_simulators
 
     circuit = stim_module.Circuit.generated(
         "surface_code:rotated_memory_x",
@@ -194,6 +222,15 @@ def build_case(
         if need_stim_loss or need_clifft_loss
         else None
     )
+    qdk_qir = None
+    qdk_noise = None
+    if need_qdk:
+        if qdk_stim_module is None:
+            raise ValueError("QDK-EC selected without qdk.stim")
+        # Compilation is deliberately part of case construction, outside all
+        # five timed sampling calls.
+        qdk_qir, qdk_noise = qdk_stim_module.compile(qdk_loss_source(loss_circuit), None)
+
     return CircuitCase(
         distance=distance,
         num_qubits=circuit.num_qubits,
@@ -219,6 +256,8 @@ def build_case(
             if "Clifft compiled" in selected_simulators
             else None
         ),
+        qdk_qir=qdk_qir,
+        qdk_noise=qdk_noise,
     )
 
 
@@ -290,6 +329,16 @@ def _run_clifft_compiled(
     shots: int = SHOTS,
 ) -> None:
     clifft_module.sample(program, shots=shots, seed=seed)
+
+
+def _run_qdk(
+    run_qir: Callable[..., Any],
+    qir: Any,
+    noise: Any,
+    seed: int,
+    shots: int = SHOTS,
+) -> None:
+    run_qir(qir, shots=shots, noise=noise, seed=seed, type="clifford")
 
 
 def _result_row(
@@ -368,6 +417,7 @@ def _plot_results(
         "ppvm": "#ea580c",
         "Clifft": "#16a34a",
         "Clifft compiled": "#16a34a",
+        "QDK-EC": "#9333ea",
     }
     linestyles = {
         "Stim": "-",
@@ -375,6 +425,7 @@ def _plot_results(
         "ppvm": "-",
         "Clifft": "-",
         "Clifft compiled": "--",
+        "QDK-EC": "-",
     }
     markers = {
         "Stim": "o",
@@ -382,6 +433,7 @@ def _plot_results(
         "ppvm": "s",
         "Clifft": "^",
         "Clifft compiled": "P",
+        "QDK-EC": "v",
     }
     paths: list[Path] = []
     for variant, title, filename in (
@@ -438,7 +490,7 @@ def run_benchmark(
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     noise_probability: float = NOISE_PROBABILITY,
     loss_probability: float = LOSS_PROBABILITY,
-    simulators: Sequence[str] = ("Stim", "ppvm", "Clifft"),
+    simulators: Sequence[str] = ("Stim", "ppvm", "Clifft", "QDK-EC"),
     variants: Sequence[str] = ("no_loss", "loss"),
     shots: int = SHOTS,
     per_sample: bool = False,
@@ -449,8 +501,17 @@ def run_benchmark(
         raise ValueError("shots must be positive")
     selected_simulators = set(simulators)
     selected_variants = set(variants)
-    stim_module, ppvm_module, clifft_module, noncomp_module, _ = _imports(
-        require_ppvm="ppvm" in selected_simulators
+    (
+        stim_module,
+        ppvm_module,
+        clifft_module,
+        noncomp_module,
+        _,
+        qdk_stim_module,
+        qdk_run_qir,
+    ) = _imports(
+        require_ppvm="ppvm" in selected_simulators,
+        require_qdk="QDK-EC" in selected_simulators,
     )
     include_loss = "loss" in selected_variants
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -479,6 +540,7 @@ def run_benchmark(
                 loss_probability,
                 include_loss=include_loss,
                 simulators=selected_simulators,
+                qdk_stim_module=qdk_stim_module,
             )
             seed_base = 100_000 + distance * 10_000
             case_rows: list[dict[str, str]] = []
@@ -595,6 +657,23 @@ def run_benchmark(
                         seed_base=seed_base + 500,
                     )
                 )
+            if "QDK-EC" in selected_simulators and "loss" in selected_variants:
+                case_rows.append(
+                    _time_one(
+                        lambda seed, c=case: _run_qdk(
+                            qdk_run_qir,
+                            c.qdk_qir,
+                            c.qdk_noise,
+                            seed,
+                            shots=shots,
+                        ),
+                        distance=distance,
+                        variant="loss",
+                        simulator="QDK-EC",
+                        repeats=repeats,
+                        seed_base=seed_base + 600,
+                    )
+                )
             rows.extend(case_rows)
             writer.writerows(case_rows)
             handle.flush()
@@ -615,7 +694,15 @@ def run_benchmark(
 def self_test() -> None:
     """Exercise the loss expansion and both external APIs at distance five."""
 
-    stim_module, ppvm_module, clifft_module, noncomp_module, _ = _imports()
+    (
+        stim_module,
+        ppvm_module,
+        clifft_module,
+        noncomp_module,
+        _,
+        qdk_stim_module,
+        qdk_run_qir,
+    ) = _imports(require_qdk=True)
     body = stim_module.Circuit()
     body.append("H", [0])
     body.append("TICK")
@@ -625,6 +712,7 @@ def self_test() -> None:
     loss_circuit = add_loss_after_gates(stim_module, circuit, LOSS_PROBABILITY)
     assert sum(name == "LOSS" for name, _, _ in loss_circuit.flattened_operations()) == 4
     assert "REPEAT 2" in str(loss_circuit)
+    assert "LOSS_ERROR(0.001)" in qdk_loss_source(loss_circuit)
 
     case = build_case(
         stim_module,
@@ -633,6 +721,7 @@ def self_test() -> None:
         5,
         NOISE_PROBABILITY,
         LOSS_PROBABILITY,
+        qdk_stim_module=qdk_stim_module,
     )
     _run_stim(stim_module, case.stim_loss_circuit, 1)
     _run_ppvm_no_loss(ppvm_module, case.ppvm_program, case.num_qubits, 2)
@@ -649,6 +738,7 @@ def self_test() -> None:
     )
     _run_clifft(noncomp_module, case.clifft_circuit, no_loss_model, 4)
     _run_clifft(noncomp_module, case.clifft_loss_circuit, loss_model, 5)
+    _run_qdk(qdk_run_qir, case.qdk_qir, case.qdk_noise, 6)
     print("self-test passed")
 
 
@@ -663,9 +753,9 @@ def main() -> None:
     parser.add_argument("--distances", type=int, nargs="+", default=list(DISTANCES))
     parser.add_argument(
         "--simulators",
-        choices=("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled"),
+        choices=("Stim", "Stim compiled", "ppvm", "Clifft", "Clifft compiled", "QDK-EC"),
         nargs="+",
-        default=["Stim", "ppvm", "Clifft"],
+        default=["Stim", "ppvm", "Clifft", "QDK-EC"],
     )
     parser.add_argument(
         "--variants",

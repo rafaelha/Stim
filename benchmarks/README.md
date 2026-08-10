@@ -1,6 +1,6 @@
 # LOSS simulator benchmark
 
-`loss_simulator_benchmark.py` compares the LOSS-enabled Stim branch with QuEra's `ppvm` and Clifft. It generates `surface_code:rotated_memory_x` circuits at distances `5, 7, 9, 11, 15, 20, 25, 30, 40, 50`, with `rounds=distance` and all four Stim noise parameters set to `0.001`:
+`loss_simulator_benchmark.py` compares the LOSS-enabled Stim branch with QuEra's `ppvm`, Clifft, and Microsoft QDK-EC's QDK simulator. It generates `surface_code:rotated_memory_x` circuits at distances `5, 7, 9, 11, 15, 20, 25, 30, 40, 50`, with `rounds=distance` and all four Stim noise parameters set to `0.001`:
 
 ```text
 after_clifford_depolarization
@@ -13,18 +13,25 @@ By default, each point is one shot and the reported value is the minimum of five
 
 Use `--shots 1024 --per-sample` to time a batch of 1,024 samples and report seconds per sample. For compiled rows, compilation is performed while constructing the benchmark case, before any timed run; only sampling is included in the five-run minimum. The batch plot and CSV use the `_batch1024` suffix when requested.
 
-Compiled controls are plotted only in `benchmark_no_loss.png`: the LOSS figure remains the three LOSS-capable, non-compiled backends. In both figures, a simulator keeps one color across variants; compiled curves use dashed lines and non-compiled curves use solid lines.
+Compiled controls are plotted only in `benchmark_no_loss.png`: the LOSS figure contains the four LOSS-capable paths. In both figures, a simulator keeps one color across variants; compiled curves use dashed lines and non-compiled curves use solid lines.
 
 The loss set adds `LOSS(0.001)` after every qubit-targeting gate, including noise channels and measurement/reset operations. Annotation instructions and `TICK` are not gates and are left unchanged. Repeat blocks are preserved in the Stim/Clifft loss circuit.
 
 The current ppvm parser on `main` rejects the LOSS spelling. For that one backend, the benchmark uses `GeneralizedTableau.loss_channel` immediately after each operation. Disjoint operations are grouped into one parsed program to avoid Python call overhead; because their targets are disjoint, their loss trials commute and this is equivalent to inserting a LOSS after each gate.
 
+QDK's experimental Stim frontend spells the same independent loss channel as
+`LOSS_ERROR(p)`. The harness translates only the instruction name, calls
+`qdk.stim.compile(source, None)` once while constructing the case, and times
+only `qdk.simulation.run_qir(..., type="clifford")`. Set
+`QDK_PYTHON_TELEMETRY=none` so the benchmark process contains no telemetry
+worker.
+
 ## Installation
 
-Build the local Stim Python extension first. In a virtual environment install the two external packages:
+Build the local Stim Python extension first. In a virtual environment install the external packages:
 
 ```bash
-python -m pip install clifft
+python -m pip install clifft qdk
 python -m pip install \
   'ppvm @ git+https://github.com/QuEraComputing/ppvm.git#subdirectory=ppvm-python'
 ```
@@ -49,8 +56,8 @@ Use `--self-test` for a distance-five API smoke test, or `--distances 5 7 --repe
 - `benchmark_no_loss.png`, a log-log plot for the control circuits;
 - `benchmark_loss.png`, a log-log plot for the LOSS circuits.
 
-The `--simulators` choices are `Stim`, `Stim compiled`, `ppvm`, `Clifft`, and
-`Clifft compiled`. The default keeps the original three LOSS-capable backends;
+The `--simulators` choices are `Stim`, `Stim compiled`, `ppvm`, `Clifft`,
+`Clifft compiled`, and `QDK-EC`. The default keeps all four LOSS-capable backends;
 collect compiled controls as independent slices when desired:
 
 ```bash
@@ -162,24 +169,26 @@ microseconds/sample at d=40). The batch Stim slice used the installed Stim
 1.16.0 wheel's compiled sampler API because a complete branch-native extension
 build was not available in the cloud image; Clifft was 0.7.0.
 
-References: [Stim circuit generation](https://github.com/quantumlib/Stim/wiki/Stim-vDev-Guide), [ppvm](https://github.com/QuEraComputing/ppvm), and [Clifft leakage/loss sampling](https://clifft.readthedocs.io/en/latest/leakage.html).
+References: [Stim circuit generation](https://github.com/quantumlib/Stim/wiki/Stim-vDev-Guide), [ppvm](https://github.com/QuEraComputing/ppvm), [Clifft leakage/loss sampling](https://clifft.readthedocs.io/en/latest/leakage.html), and [QDK-EC's loss tutorial](https://github.com/microsoft/qdk-ec/blob/main/deq/documents/tutorial/chapters/qdk-loss-simulation.md).
 
 ## Final favorable-settings run
 
-`final_benchmark_report.py` assembles the final batch-1024 run and renders
+`final_benchmark_report.py` assembles the final runs and renders
 `results/final_benchmark_no_loss.png` and `results/final_benchmark_loss.png`.
 The no-loss figure includes Stim and Clifft compiled samplers, with compilation
 performed before timing and dashed lines for those compiled curves. It also
 includes the best affordable batch-1024 settings for ppvm and Clifft's
-non-compiled API, plus the one-shot latency controls. The LOSS figure reports
-the full one-shot distance sweep for all three simulators and marks affordable
-batch-1024 throughput checks.
+non-compiled API, plus the one-shot latency controls. The corrected LOSS figure
+is a consistent one-shot latency rerun for Stim, ppvm, Clifft, and QDK-EC. It
+deliberately omits the old isolated batch-check markers: every LOSS legend item
+now corresponds to a connected measured curve.
 
 Every plotted value is the minimum of five timed runs and is normalized to
 seconds per sample. Surface-code circuits use `d` rounds and all four Stim
 noise parameters equal to `0.001`; LOSS runs insert `LOSS(0.001)` after every
-gate. Stim's `TableauSimulator` and the LOSS adapters do not expose a native
-multi-shot sampler, so their batch-1024 checks are serial repeated shots; the
-compiled Stim sampler is the favorable high-throughput path. Batch runs that
-were not completed within the machine's resource budget are left absent from
-the plot and documented in `results/final_benchmark_results.csv`.
+gate (`LOSS_ERROR(0.001)` for QDK's parser). Stim's `TableauSimulator` and the
+ppvm LOSS adapter do not expose a native multi-shot sampler; the corrected LOSS
+plot therefore reports one-shot latency uniformly instead of mixing isolated
+batch checks into the same figure. Runs that were not completed within the
+machine's resource budget are left absent and documented in
+`results/final_benchmark_results.csv`.

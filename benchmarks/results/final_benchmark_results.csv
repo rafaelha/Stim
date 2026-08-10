@@ -1,39 +1,44 @@
 distance,variant,simulator,mode,shots,min_seconds,seconds_per_sample,source,error
-5,loss,Clifft,batch1024,1024,16.514931181,0.0161278624814,benchmarks/results/final_raw/loss_batch1024_d5.csv,
-5,loss,Clifft,one-shot,1,0.0143827130014,0.0143827130014,benchmarks/results/benchmark_results.csv,
-5,loss,Stim,batch1024,1024,0.111491036,0.000108877964844,benchmarks/results/final_raw/loss_batch1024_d5.csv,
-5,loss,Stim,one-shot,1,0.000100960001873,0.000100960001873,benchmarks/results/benchmark_results.csv,
-5,loss,ppvm,batch1024,1024,0.329052359,0.000321340194336,benchmarks/results/final_raw/loss_batch1024_d5.csv,
-5,loss,ppvm,one-shot,1,0.000317530997563,0.000317530997563,benchmarks/results/benchmark_results.csv,
-7,loss,Clifft,one-shot,1,0.138952887999,0.138952887999,benchmarks/results/benchmark_results.csv,
-7,loss,Stim,batch1024,1024,0.506898716,0.000495018277344,benchmarks/results/final_raw/loss_batch1024_d7_stim_ppvm.csv,
-7,loss,Stim,one-shot,1,0.000355457999831,0.000355457999831,benchmarks/results/benchmark_results.csv,
-7,loss,ppvm,batch1024,1024,1.413980641,0.00138084046973,benchmarks/results/final_raw/loss_batch1024_d7_stim_ppvm.csv,
-7,loss,ppvm,one-shot,1,0.00136002100044,0.00136002100044,benchmarks/results/benchmark_results.csv,
-9,loss,Clifft,one-shot,1,0.701684096999,0.701684096999,benchmarks/results/benchmark_results.csv,
-9,loss,Stim,one-shot,1,0.000899506001588,0.000899506001588,benchmarks/results/benchmark_results.csv,
-9,loss,ppvm,one-shot,1,0.00393665699812,0.00393665699812,benchmarks/results/benchmark_results.csv,
-11,loss,Clifft,one-shot,1,5.884017964,5.884017964,benchmarks/results/benchmark_results.csv,
-11,loss,Stim,one-shot,1,0.00234361099865,0.00234361099865,benchmarks/results/benchmark_results.csv,
-11,loss,ppvm,one-shot,1,0.00947970099878,0.00947970099878,benchmarks/results/benchmark_results.csv,
-15,loss,Clifft,one-shot,1,99.086770087,99.086770087,benchmarks/results/benchmark_results.csv,
-15,loss,Stim,one-shot,1,0.0120143750028,0.0120143750028,benchmarks/results/benchmark_results.csv,
-15,loss,ppvm,one-shot,1,0.0369423410011,0.0369423410011,benchmarks/results/benchmark_results.csv,
-20,loss,Clifft,one-shot,1,,,benchmarks/results/benchmark_results.csv,not measured: Clifft LOSS exceeded the available runtime after d=15
-20,loss,Stim,one-shot,1,0.0658736929981,0.0658736929981,benchmarks/results/benchmark_results.csv,
-20,loss,ppvm,one-shot,1,0.140968893,0.140968893,benchmarks/results/benchmark_results.csv,
-25,loss,Clifft,one-shot,1,,,benchmarks/results/benchmark_results.csv,not measured: Clifft LOSS exceeded the available runtime after d=15
-25,loss,Stim,one-shot,1,0.255149206001,0.255149206001,benchmarks/results/benchmark_results.csv,
-25,loss,ppvm,one-shot,1,0.377980758003,0.377980758003,benchmarks/results/benchmark_results.csv,
-30,loss,Clifft,one-shot,1,,,benchmarks/results/benchmark_results.csv,not measured: Clifft LOSS exceeded the available runtime after d=15
-30,loss,Stim,one-shot,1,0.856107437998,0.856107437998,benchmarks/results/benchmark_results.csv,
-30,loss,ppvm,one-shot,1,0.893211704999,0.893211704999,benchmarks/results/benchmark_results.csv,
-40,loss,Clifft,one-shot,1,,,benchmarks/results/benchmark_results.csv,not measured: Clifft LOSS exceeded the available runtime after d=15
-40,loss,Stim,one-shot,1,6.056456588,6.056456588,benchmarks/results/benchmark_results.csv,
-40,loss,ppvm,one-shot,1,,,benchmarks/results/benchmark_results.csv,"ValueError: n_qubits must be between 1 and 2048 (got 3319); to simulate more qubits, use the ppvm-tableau Rust crate directly."
-50,loss,Clifft,one-shot,1,,,benchmarks/results/benchmark_results.csv,not measured: Clifft LOSS exceeded the available runtime after d=15
-50,loss,Stim,one-shot,1,29.5689022,29.5689022,benchmarks/results/benchmark_results.csv,
-50,loss,ppvm,one-shot,1,,,benchmarks/results/benchmark_results.csv,"ValueError: n_qubits must be between 1 and 2048 (got 5149); to simulate more qubits, use the ppvm-tableau Rust crate directly."
+5,loss,Clifft,one-shot,1,0.0139130070002,0.0139130070002,benchmarks/results/final_raw/loss_rerun_clifft.csv,
+5,loss,QDK-EC,one-shot,1,0.0611830560001,0.0611830560001,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+5,loss,Stim,one-shot,1,0.000140568999996,0.000140568999996,benchmarks/results/final_raw/loss_rerun_stim.csv,
+5,loss,ppvm,one-shot,1,0.000329079000039,0.000329079000039,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+7,loss,Clifft,one-shot,1,0.206361389,0.206361389,benchmarks/results/final_raw/loss_rerun_clifft.csv,
+7,loss,QDK-EC,one-shot,1,0.174363984,0.174363984,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+7,loss,Stim,one-shot,1,0.000502797000081,0.000502797000081,benchmarks/results/final_raw/loss_rerun_stim.csv,
+7,loss,ppvm,one-shot,1,0.0013889349998,0.0013889349998,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+9,loss,Clifft,one-shot,1,0.783518322,0.783518322,benchmarks/results/final_raw/loss_rerun_clifft.csv,
+9,loss,QDK-EC,one-shot,1,0.390777499,0.390777499,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+9,loss,Stim,one-shot,1,0.00127810999993,0.00127810999993,benchmarks/results/final_raw/loss_rerun_stim.csv,
+9,loss,ppvm,one-shot,1,0.00427450500001,0.00427450500001,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+11,loss,Clifft,one-shot,1,6.261606904,6.261606904,benchmarks/results/final_raw/loss_rerun_clifft.csv,
+11,loss,QDK-EC,one-shot,1,0.714557288,0.714557288,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+11,loss,Stim,one-shot,1,0.0022887529999,0.0022887529999,benchmarks/results/final_raw/loss_rerun_stim.csv,
+11,loss,ppvm,one-shot,1,0.00989163699978,0.00989163699978,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+15,loss,Clifft,one-shot,1,100.687781922,100.687781922,benchmarks/results/final_raw/loss_rerun_clifft.csv,
+15,loss,QDK-EC,one-shot,1,1.85691512,1.85691512,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+15,loss,Stim,one-shot,1,0.0113900460001,0.0113900460001,benchmarks/results/final_raw/loss_rerun_stim.csv,
+15,loss,ppvm,one-shot,1,0.0387006720002,0.0387006720002,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+20,loss,Clifft,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_clifft.csv,not run: d=15 already required about 101 seconds per shot
+20,loss,QDK-EC,one-shot,1,4.790086734,4.790086734,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+20,loss,Stim,one-shot,1,0.0634174420002,0.0634174420002,benchmarks/results/final_raw/loss_rerun_stim.csv,
+20,loss,ppvm,one-shot,1,0.137320725,0.137320725,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+25,loss,Clifft,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_clifft.csv,not run: d=15 already required about 101 seconds per shot
+25,loss,QDK-EC,one-shot,1,9.706690036,9.706690036,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+25,loss,Stim,one-shot,1,0.256207162,0.256207162,benchmarks/results/final_raw/loss_rerun_stim.csv,
+25,loss,ppvm,one-shot,1,0.381105658,0.381105658,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+30,loss,Clifft,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_clifft.csv,not run: d=15 already required about 101 seconds per shot
+30,loss,QDK-EC,one-shot,1,17.176914088,17.176914088,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+30,loss,Stim,one-shot,1,0.809906122,0.809906122,benchmarks/results/final_raw/loss_rerun_stim.csv,
+30,loss,ppvm,one-shot,1,0.918090816,0.918090816,benchmarks/results/final_raw/loss_rerun_ppvm.csv,
+40,loss,Clifft,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_clifft.csv,not run: d=15 already required about 101 seconds per shot
+40,loss,QDK-EC,one-shot,1,44.913716953,44.913716953,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+40,loss,Stim,one-shot,1,6.283293875,6.283293875,benchmarks/results/final_raw/loss_rerun_stim.csv,
+40,loss,ppvm,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_ppvm.csv,unsupported: ppvm GeneralizedTableau supports at most 2048 qubits
+50,loss,Clifft,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_clifft.csv,not run: d=15 already required about 101 seconds per shot
+50,loss,QDK-EC,one-shot,1,95.870265982,95.870265982,benchmarks/results/final_raw/loss_rerun_qdk_ec.csv,
+50,loss,Stim,one-shot,1,32.952807562,32.952807562,benchmarks/results/final_raw/loss_rerun_stim.csv,
+50,loss,ppvm,one-shot,1,,,benchmarks/results/final_raw/loss_rerun_ppvm.csv,unsupported: ppvm GeneralizedTableau supports at most 2048 qubits
 5,no_loss,Clifft,batch1024,1024,0.00543943499997,5.31194824216e-06,benchmarks/results/final_raw/clifft_noncomp_batch1024_d5d7.csv,
 5,no_loss,Clifft,one-shot,1,0.00192200500169,0.00192200500169,benchmarks/results/benchmark_results.csv,
 5,no_loss,Clifft compiled,batch1024,1024,0.003387557,3.30816113281e-06,benchmarks/results/final_raw/clifft_compiled_batch1024.csv,

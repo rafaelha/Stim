@@ -60,9 +60,9 @@ def append_rows(
 def assemble() -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     base = RESULTS / "benchmark_results.csv"
-    # The earlier five-run one-shot run supplies the full latency curves and
-    # the distances where batch sampling was impractical.
-    append_rows(rows, base, mode="one-shot", shots=1)
+    # Retain the no-loss control from the earlier run. LOSS is replaced below
+    # by a complete rerun that includes QDK-EC.
+    append_rows(rows, base, mode="one-shot", shots=1, variant="no_loss")
 
     # Current final no-loss batch slices. Compilation happened in build_case,
     # before the timed region, for both compiled backends.
@@ -83,10 +83,23 @@ def assemble() -> list[dict[str, str]]:
             simulator=simulator,
         )
 
-    # LOSS has no compiled sampler in any of the three APIs. The batch slices
-    # below are therefore throughput checks, not compiled curves.
-    for name in ("loss_batch1024_d5.csv", "loss_batch1024_d7_stim_ppvm.csv"):
-        append_rows(rows, RAW / name, mode="batch1024", shots=1024, variant="loss")
+    # The corrected LOSS figure is a single, consistent one-shot latency
+    # comparison. Each legend entry is backed by a connected multi-point
+    # curve; the former isolated batch-check markers are intentionally absent.
+    for name, simulator in (
+        ("loss_rerun_stim.csv", "Stim"),
+        ("loss_rerun_ppvm.csv", "ppvm"),
+        ("loss_rerun_clifft.csv", "Clifft"),
+        ("loss_rerun_qdk_ec.csv", "QDK-EC"),
+    ):
+        append_rows(
+            rows,
+            RAW / name,
+            mode="one-shot",
+            shots=1,
+            variant="loss",
+            simulator=simulator,
+        )
     return rows
 
 
@@ -126,7 +139,12 @@ def plot(rows: list[dict[str, str]], path: Path, variant: str) -> None:
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    colors = {"Stim": "#2563eb", "ppvm": "#ea580c", "Clifft": "#16a34a"}
+    colors = {
+        "Stim": "#2563eb",
+        "ppvm": "#ea580c",
+        "Clifft": "#16a34a",
+        "QDK-EC": "#9333ea",
+    }
     series = (
         ("Stim", "Stim Tableau (one-shot)", "one-shot", ":", "o"),
         ("Stim compiled", "Stim compiled (batch 1024)", "batch1024", "--", "D"),
@@ -135,6 +153,7 @@ def plot(rows: list[dict[str, str]], path: Path, variant: str) -> None:
         ("Clifft", "Clifft non-compiled (one-shot)", "one-shot", ":", "^"),
         ("Clifft", "Clifft non-compiled (batch 1024)", "batch1024", "-", "^"),
         ("Clifft compiled", "Clifft compiled (batch 1024)", "batch1024", "--", "P"),
+        ("QDK-EC", "QDK-EC / qdk.stim (one-shot)", "one-shot", ":", "v"),
     )
 
     figure, axis = plt.subplots(figsize=(8.8, 5.6), constrained_layout=True)
@@ -164,68 +183,39 @@ def plot(rows: list[dict[str, str]], path: Path, variant: str) -> None:
             label=label,
         )
 
-    # LOSS batch points are useful as an explicit throughput check, but there
-    # are not enough affordable points to connect them into a misleading curve.
-    if variant == "loss":
-        for simulator in ("Stim", "ppvm", "Clifft"):
-            points = sorted(
-                (
-                    int(row["distance"]),
-                    float(row["seconds_per_sample"]),
-                )
-                for row in rows
-                if row["variant"] == "loss"
-                and row["simulator"] == simulator
-                and row["mode"] == "batch1024"
-                and row["seconds_per_sample"]
-            )
-            if points:
-                axis.plot(
-                    [x for x, _ in points],
-                    [y for _, y in points],
-                    color=colors[simulator],
-                    linestyle="None",
-                    marker="X",
-                    markersize=7,
-                    label=f"{simulator} LOSS (batch 1024 check)",
-                )
-
     axis.set_xscale("log")
     axis.set_yscale("log")
     axis.set_xticks(DISTANCES)
     axis.get_xaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
+    axis.get_xaxis().set_minor_formatter(matplotlib.ticker.NullFormatter())
     axis.set_xlabel("Surface-code distance d")
     axis.set_ylabel("Time per sample (seconds; minimum of 5 runs)")
     if variant == "no_loss":
         axis.set_title("Surface-code simulation without LOSS")
     else:
-        axis.set_title("Surface-code simulation with LOSS(0.001) after every gate")
+        axis.set_title("Surface-code loss simulation (p=0.001 after every gate)")
     axis.grid(True, which="both", color="#cbd5e1", alpha=0.45, linewidth=0.7)
     axis.legend(frameon=False, fontsize=8)
     figure.savefig(path, dpi=200)
     plt.close(figure)
 
 
-def make_html(no_loss: Path, loss: Path) -> Path:
+def make_html(loss: Path) -> Path:
     def data_url(path: Path) -> str:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
         return f"data:image/png;base64,{encoded}"
 
-    html_path = Path("/workspace/final-simulator-benchmark.html")
-    fragment = f'''<div id="final-simulator-benchmark">
+    html_path = Path("/workspace/qdk-loss-benchmark.html")
+    fragment = f'''<div id="qdk-loss-benchmark">
   <style>
-    #final-simulator-benchmark {{ display: grid; gap: 1rem; }}
-    #final-simulator-benchmark figure {{ margin: 0; }}
-    #final-simulator-benchmark img {{ display: block; width: 100%; height: auto; }}
-    #final-simulator-benchmark figcaption {{ font-size: 0.9rem; margin-top: 0.35rem; }}
+    #qdk-loss-benchmark {{ display: grid; gap: 1rem; }}
+    #qdk-loss-benchmark figure {{ margin: 0; }}
+    #qdk-loss-benchmark img {{ display: block; width: 100%; height: auto; }}
+    #qdk-loss-benchmark figcaption {{ font-size: 0.9rem; margin-top: 0.35rem; }}
   </style>
   <figure>
-    <img src="{data_url(no_loss)}" alt="Log-log plot of no-loss surface-code time per sample versus distance, with dotted one-shot controls, batch-1024 curves, and dashed compiled curves.">
-    <figcaption>No loss: seconds per sample; one-shot controls are dotted and compiled curves are dashed.</figcaption>
-  </figure>
-  <figure>
-    <img src="{data_url(loss)}" alt="Log-log plot of LOSS surface-code time per sample versus distance, showing one-shot curves and batch-1024 throughput checks.">
-    <figcaption>LOSS: one-shot curves span the requested distances; X markers are batch-1024 checks where the run was affordable.</figcaption>
+    <img src="{data_url(loss)}" alt="Log-log plot of one-shot LOSS surface-code time per sample versus distance for Stim, ppvm, Clifft, and QDK-EC.">
+    <figcaption>LOSS: a consistent one-shot comparison. Every legend item is a connected measured curve; compilation and parsing are excluded.</figcaption>
   </figure>
 </div>
 '''
@@ -243,10 +233,10 @@ def main() -> None:
     # The visualization surface is kept outside the git repository so it can
     # be rendered directly in the conversation without adding a large HTML
     # data URL to the benchmark PR.
-    make_html(no_loss, loss)
+    make_html(loss)
     print(no_loss)
     print(loss)
-    print("/workspace/final-simulator-benchmark.html")
+    print("/workspace/qdk-loss-benchmark.html")
 
 
 if __name__ == "__main__":

@@ -163,3 +163,23 @@ microseconds/sample at d=40). The batch Stim slice used the installed Stim
 build was not available in the cloud image; Clifft was 0.7.0.
 
 References: [Stim circuit generation](https://github.com/quantumlib/Stim/wiki/Stim-vDev-Guide), [ppvm](https://github.com/QuEraComputing/ppvm), and [Clifft leakage/loss sampling](https://clifft.readthedocs.io/en/latest/leakage.html).
+
+## Final favorable-settings run
+
+`final_benchmark_report.py` assembles the final batch-1024 run and renders
+`results/final_benchmark_no_loss.png` and `results/final_benchmark_loss.png`.
+The no-loss figure includes Stim and Clifft compiled samplers, with compilation
+performed before timing and dashed lines for those compiled curves. It also
+includes the best affordable batch-1024 settings for ppvm and Clifft's
+non-compiled API, plus the one-shot latency controls. The LOSS figure reports
+the full one-shot distance sweep for all three simulators and marks affordable
+batch-1024 throughput checks.
+
+Every plotted value is the minimum of five timed runs and is normalized to
+seconds per sample. Surface-code circuits use `d` rounds and all four Stim
+noise parameters equal to `0.001`; LOSS runs insert `LOSS(0.001)` after every
+gate. Stim's `TableauSimulator` and the LOSS adapters do not expose a native
+multi-shot sampler, so their batch-1024 checks are serial repeated shots; the
+compiled Stim sampler is the favorable high-throughput path. Batch runs that
+were not completed within the machine's resource budget are left absent from
+the plot and documented in `results/final_benchmark_results.csv`.
